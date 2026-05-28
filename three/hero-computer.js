@@ -307,7 +307,23 @@ function initScene(canvas) {
       }
       grid.push(row.join(','));
     }
-    return { size: [W, H], glError: gl.getError(), rows: grid };
+    return { size: [W, H], glError: gl.getError(), rows: grid,
+      cfg: {
+        outputColorSpace: renderer.outputColorSpace,
+        toneMapping: renderer.toneMapping,
+        isWebGL2: renderer.capabilities.isWebGL2,
+        maxAniso: MAX_ANISO,
+        mapColorSpace: matScreen.map ? matScreen.map.colorSpace : null,
+        mapMinFilter: matScreen.map ? matScreen.map.minFilter : null,
+        mapMagFilter: matScreen.map ? matScreen.map.magFilter : null,
+        mapGenMips: matScreen.map ? matScreen.map.generateMipmaps : null,
+        mapFlipY: matScreen.map ? matScreen.map.flipY : null,
+        mapAniso: matScreen.map ? matScreen.map.anisotropy : null,
+        matColor: matScreen.color.getHex(),
+        matToneMapped: matScreen.toneMapped,
+        matTransparent: matScreen.transparent,
+        matOpacity: matScreen.opacity,
+      } };
   };
 
   // TEMP DEBUG — reconstruct the main-renderer framebuffer as a PNG dataURL (flipped,
