@@ -226,14 +226,24 @@ function initScene(canvas) {
     scanlinesAndSheen();
   }
 
-  function refresh() {
-    if (player.mode === 'player') drawPlayer(); else drawDefault();
-    // Recreate the texture so the GPU re-uploads reliably. A shared CanvasTexture
-    // wasn't re-uploading in this dual-renderer scene (main + outline contexts),
-    // leaving the screen frozen on its first frame.
+  // The screen canvas is 512×425 — non-power-of-two. Auto-generated mipmaps on a
+  // NPOT texture render dark/blocky with a garbage corner on some GPUs (notably
+  // Apple/ANGLE), which was the CRT glitch. LinearFilter + no mipmaps is the
+  // correct setup for a live canvas display and is valid for NPOT on all backends.
+  function makeScreenTexture() {
     const t = new THREE.CanvasTexture(screenCanvas);
     t.colorSpace = THREE.SRGBColorSpace;
-    t.anisotropy = 4;
+    t.minFilter = THREE.LinearFilter;
+    t.magFilter = THREE.LinearFilter;
+    t.generateMipmaps = false;
+    return t;
+  }
+
+  function refresh() {
+    if (player.mode === 'player') drawPlayer(); else drawDefault();
+    // Recreate the texture so the GPU re-uploads reliably across the dual-renderer
+    // scene (main + outline contexts).
+    const t = makeScreenTexture();
     if (screenTex) screenTex.dispose();
     screenTex = t;
     matScreen.map = t;
@@ -241,9 +251,7 @@ function initScene(canvas) {
   }
 
   drawDefault();
-  let screenTex = new THREE.CanvasTexture(screenCanvas);
-  screenTex.colorSpace = THREE.SRGBColorSpace;
-  screenTex.anisotropy = 4;
+  let screenTex = makeScreenTexture();
 
   // Unlit so the screen is self-illuminated (a real display), showing album art
   // at full brightness/colour instead of being darkened by scene lighting.
