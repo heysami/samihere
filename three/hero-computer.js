@@ -216,11 +216,14 @@ function initScene(canvas) {
     const sh = g.createLinearGradient(0, BAR_Y - BAR_H * 0.5, 0, H);
     sh.addColorStop(0, 'rgba(0,0,0,0)'); sh.addColorStop(1, 'rgba(0,0,0,0.74)');
     g.fillStyle = sh; g.fillRect(0, BAR_Y - BAR_H * 0.5, W, H - (BAR_Y - BAR_H * 0.5));
-    // Hover backdrop: a soft disc behind the control the pointer is over.
+    // Hover affordance: a dark disc + light ring behind the control the pointer
+    // is over — reads clearly on both bright and dark album art.
     if (player.hover && BTN[player.hover]) {
       const b = BTN[player.hover];
-      g.beginPath(); g.arc(b.x, b.y, BTN_R * 1.55, 0, Math.PI * 2);
-      g.fillStyle = 'rgba(255,255,255,0.22)'; g.fill();
+      g.beginPath(); g.arc(b.x, b.y, BTN_R * 1.5, 0, Math.PI * 2);
+      g.fillStyle = 'rgba(0,0,0,0.5)'; g.fill();
+      g.lineWidth = Math.max(2, BTN_R * 0.12);
+      g.strokeStyle = 'rgba(255,255,255,0.75)'; g.stroke();
     }
     icon('prev', BTN.prev.x, BTN.prev.y);
     icon(player.playing ? 'pause' : 'play', BTN.toggle.x, BTN.toggle.y);
