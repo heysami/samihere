@@ -18,9 +18,9 @@ let listCache = { value: null, exp: 0 };
 async function getToken() {
   const now = Date.now();
   if (tokenCache.value && now < tokenCache.exp) return tokenCache.value;
-  const id = process.env.SPOTIFY_CLIENT_ID;
-  const secret = process.env.SPOTIFY_CLIENT_SECRET;
-  if (!id || !secret) throw new Error('missing Spotify credentials');
+  const id = (process.env.SPOTIFY_CLIENT_ID || '').trim();
+  const secret = (process.env.SPOTIFY_CLIENT_SECRET || '').trim();
+  if (!id || !secret) throw new Error('env SPOTIFY_CLIENT_ID / SPOTIFY_CLIENT_SECRET not set');
   const r = await fetch('https://accounts.spotify.com/api/token', {
     method: 'POST',
     headers: {
@@ -29,8 +29,8 @@ async function getToken() {
     },
     body: 'grant_type=client_credentials',
   });
-  const j = await r.json();
-  if (!r.ok) throw new Error((j.error_description || j.error || 'token error'));
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error('token ' + r.status + ': ' + (j.error_description || j.error || 'unknown'));
   tokenCache = { value: j.access_token, exp: now + (j.expires_in - 60) * 1000 };
   return tokenCache.value;
 }
@@ -48,8 +48,8 @@ async function getTracks() {
   const out = [];
   while (url && out.length < MAX_TRACKS) {
     const r = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
-    const j = await r.json();
-    if (!r.ok) throw new Error((j.error && j.error.message) || 'playlist error');
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error('playlist ' + r.status + ': ' + ((j.error && j.error.message) || 'unknown'));
     for (const it of j.items || []) {
       const t = it && it.track;
       if (!t || !t.uri || t.uri.startsWith('spotify:local')) continue;
@@ -73,6 +73,6 @@ module.exports = async (req, res) => {
     res.setHeader('Cache-Control', 's-maxage=600, stale-while-revalidate=60');
     res.status(200).json({ tracks });
   } catch (e) {
-    res.status(500).json({ error: 'playlist unavailable', tracks: [] });
+    res.status(200).json({ error: String((e && e.message) || e), tracks: [] });
   }
 };
