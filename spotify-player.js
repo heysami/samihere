@@ -21,8 +21,8 @@
     var audio = new Audio();
     audio.preload = 'none';
     audio.addEventListener('ended', function () { load(index + 1, true); });
-    audio.addEventListener('play', function () { window.heroScreen.setPlaying(true); });
-    audio.addEventListener('pause', function () { window.heroScreen.setPlaying(false); });
+    audio.addEventListener('play', function () { window.heroScreen.setPlaying(true); showNowPlaying(true); });
+    audio.addEventListener('pause', function () { window.heroScreen.setPlaying(false); showNowPlaying(false); });
 
     fetch('/api/playlist')
       .then(function (r) { return r.json(); })
@@ -44,12 +44,16 @@
     }
 
     function setNowPlaying(title, artist) {
-      var wrap = document.getElementById('hero-nowplaying');
       var t = document.getElementById('np-title');
       var a = document.getElementById('np-artist');
       if (t) t.textContent = title || '';
       if (a) a.textContent = artist || '';
-      if (wrap) wrap.style.opacity = (title || artist) ? '1' : '0';
+    }
+
+    // Title/artist are only shown while audio is actually playing.
+    function showNowPlaying(show) {
+      var wrap = document.getElementById('hero-nowplaying');
+      if (wrap) wrap.style.opacity = show ? '1' : '0';
     }
 
     window.heroScreen.onControl(function (action) {

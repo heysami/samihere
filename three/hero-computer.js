@@ -229,6 +229,10 @@ function initScene(canvas) {
     icon(player.playing ? 'pause' : 'play', BTN.toggle.x, BTN.toggle.y);
     icon('next', BTN.next.x, BTN.next.y);
     scanlinesAndSheen();
+    // Black outline framing the album art.
+    g.lineWidth = Math.round(W * 0.022);
+    g.strokeStyle = '#000';
+    g.strokeRect(g.lineWidth / 2, g.lineWidth / 2, W - g.lineWidth, H - g.lineWidth);
   }
 
   // The 512-px screen canvas is minified ~5-6× onto the small CRT plane, which is
@@ -297,10 +301,14 @@ function initScene(canvas) {
     return best;
   }
 
+  // The person image overlaps and sits above the canvas, so it (not the canvas)
+  // is the pointer hit-target over the CRT. cursor is inherited, so set it on the
+  // composite parent — whichever layer is on top inherits the hand cursor.
+  const cursorEl = canvas.parentElement || canvas;
   window.addEventListener('mousemove', (e) => {
     if (player.mode !== 'player') return;
     const ctrl = pickControl(e.clientX, e.clientY);
-    canvas.style.cursor = ctrl ? 'pointer' : '';
+    cursorEl.style.cursor = ctrl ? 'pointer' : '';
     if (ctrl !== player.hover) { player.hover = ctrl; refresh(); } // redraw hover highlight
   });
   window.addEventListener('click', (e) => {
