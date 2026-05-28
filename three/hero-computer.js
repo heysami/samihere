@@ -176,7 +176,7 @@ function initScene(canvas) {
   }
 
   function drawCover(img) {
-    const W = SCW, H = BAR_Y; // art fills the area above the control bar
+    const W = SCW, H = SCH; // art fills the whole screen; controls overlay the bottom scrim
     const ir = img.width / img.height, ar = W / H;
     let dw, dh;
     if (ir > ar) { dh = H; dw = H * ir; } else { dw = W; dh = W / ir; }
