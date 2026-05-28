@@ -293,18 +293,21 @@ function initScene(canvas) {
     const W = renderer.domElement.width, H = renderer.domElement.height;
     const buf = new Uint8Array(W * H * 4);
     gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, buf);
-    const cols = 8, rows = 8, grid = [];
+    const x0 = Math.floor(W * 0.30), x1 = Math.floor(W * 0.72);
+    const y0 = Math.floor(H * 0.22), y1 = Math.floor(H * 0.66);
+    const cols = 30, rows = 22, grid = [];
     for (let r = 0; r < rows; r++) {
       const row = [];
       for (let c = 0; c < cols; c++) {
-        const x = Math.floor((c + 0.5) / cols * W);
-        const y = Math.floor((1 - (r + 0.5) / rows) * H); // flip: readPixels is bottom-left
-        const i = (y * W + x) * 4;
-        row.push([buf[i], buf[i + 1], buf[i + 2], buf[i + 3]]);
+        const px = Math.floor(x0 + (c + 0.5) / cols * (x1 - x0));
+        const pyTop = Math.floor(y0 + (r + 0.5) / rows * (y1 - y0));
+        const py = H - 1 - pyTop; // flip: readPixels is bottom-left
+        const i = (py * W + px) * 4;
+        row.push(Math.round(0.299 * buf[i] + 0.587 * buf[i + 1] + 0.114 * buf[i + 2]));
       }
-      grid.push(row);
+      grid.push(row.join(','));
     }
-    return { size: [W, H], glError: gl.getError(), grid };
+    return { size: [W, H], glError: gl.getError(), rows: grid };
   };
 
   // TEMP DEBUG — reconstruct the main-renderer framebuffer as a PNG dataURL (flipped,
