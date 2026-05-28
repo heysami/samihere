@@ -333,42 +333,39 @@ function initScene(canvas) {
       } };
   };
 
-  // TEMP DEBUG — read back the ACTUAL uploaded GPU texture for matScreen.map by
-  // binding it to a framebuffer. Tells us if the texture data itself is dark.
+  // TEMP DEBUG — read back the average brightness of EACH mip level of the screen
+  // texture. If coarse mips are dark, that's why the minified screen renders dark.
   window.__heroTex = function () {
     renderer.render(scene, camera); // ensure current texture is uploaded
     const tex = matScreen.map;
     const gl = renderer.getContext();
     const glTex = renderer.properties.get(tex).__webglTexture;
     if (!glTex) return { glTexExists: false };
-    const fb = gl.createFramebuffer();
-    gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, glTex, 0);
-    const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
-    let rows = null;
-    if (status === gl.FRAMEBUFFER_COMPLETE) {
-      const W = tex.image.width, H = tex.image.height;
-      const buf = new Uint8Array(W * H * 4);
-      gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, buf);
-      const ramp = ' .:-=+*#%@', cols = 30, rws = 18, g = [];
-      for (let r = 0; r < rws; r++) {
-        let s = '';
-        for (let c = 0; c < cols; c++) {
-          const x = Math.floor((c + 0.5) / cols * W);
-          const y = Math.floor((r + 0.5) / rws * H); // texture row 0 = bottom in GL; fine for shape
-          const i = (y * W + x) * 4;
-          const lum = 0.299 * buf[i] + 0.587 * buf[i + 1] + 0.114 * buf[i + 2];
-          s += ramp[Math.min(9, Math.floor(lum / 25.6))];
+    const W0 = tex.image.width, H0 = tex.image.height;
+    const levels = [];
+    for (let lvl = 0; lvl < 10; lvl++) {
+      const w = Math.max(1, W0 >> lvl), h = Math.max(1, H0 >> lvl);
+      const fb = gl.createFramebuffer();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, glTex, lvl);
+      const ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+      let avg = null;
+      if (ok) {
+        const buf = new Uint8Array(w * h * 4);
+        gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, buf);
+        let sum = 0, n = 0;
+        for (let i = 0; i < buf.length; i += 4) {
+          sum += 0.299 * buf[i] + 0.587 * buf[i + 1] + 0.114 * buf[i + 2]; n++;
         }
-        g.push(s);
+        avg = Math.round(sum / n);
       }
-      rows = g;
+      levels.push({ lvl, w, h, ok, avgLuma: avg });
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.deleteFramebuffer(fb);
+      if (w === 1 && h === 1) break;
     }
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.deleteFramebuffer(fb);
     if (renderer.resetState) renderer.resetState();
-    return { glTexExists: true, fbStatusComplete: status === gl.FRAMEBUFFER_COMPLETE,
-      texSize: [tex.image.width, tex.image.height], rows };
+    return { glTexExists: true, texSize: [W0, H0], levels };
   };
 
   // TEMP DEBUG — reconstruct the main-renderer framebuffer as a PNG dataURL (flipped,
