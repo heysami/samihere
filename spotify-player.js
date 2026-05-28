@@ -38,8 +38,18 @@
       index = (i + tracks.length) % tracks.length;
       var t = tracks[index];
       window.heroScreen.setArt(t.art);
+      setNowPlaying(t.title, t.artist);
       audio.src = t.preview;
       if (playNow) audio.play().catch(function () {});
+    }
+
+    function setNowPlaying(title, artist) {
+      var wrap = document.getElementById('hero-nowplaying');
+      var t = document.getElementById('np-title');
+      var a = document.getElementById('np-artist');
+      if (t) t.textContent = title || '';
+      if (a) a.textContent = artist || '';
+      if (wrap) wrap.style.opacity = (title || artist) ? '1' : '0';
     }
 
     window.heroScreen.onControl(function (action) {

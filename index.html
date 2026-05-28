@@ -350,6 +350,11 @@
         <!-- ───────────── Section 1: Hero (composite hero image) ───────────── -->
         <section class="h-screen w-full snap-start flex flex-col items-center justify-center p-8 relative overflow-hidden">
           <div class="w-full max-w-5xl flex flex-col items-center gap-0 relative z-10 -translate-y-8">
+            <!-- Now-playing: current CRT track title + artist, sits above the computer -->
+            <div id="hero-nowplaying" class="text-center mb-3 opacity-0 transition-opacity duration-500" aria-live="polite">
+              <div id="np-title" class="text-sm md:text-base font-semibold text-zinc-700"></div>
+              <div id="np-artist" class="text-xs md:text-sm text-zinc-400"></div>
+            </div>
             <div id="hero-art" class="w-full">
               <!-- Hero composite: B&W sofa raster · 3D computer (WebGL) · person illustration -->
               <div class="hero-composite drop-shadow-sm">
@@ -462,7 +467,7 @@
     </div>
 
     <!-- 3D hero computer (Three.js scene wired to #hero-computer by the 3d drawer) -->
-    <script type="module" src="three/hero-computer.js?v=2"></script>
+    <script type="module" src="three/hero-computer.js?v=3"></script>
 
     <!-- 3D mau character + forward confetti for the Vibe-Code bottom-left card -->
     <script type="module" src="three/vibe-character.js"></script>

@@ -53,7 +53,6 @@ function initScene(canvas) {
     body:    0xffffff, // pure white plastic — matches the page background
     bodyDk:  0xf4f4f4, // barely-shaded side
     bezel:   0xffffff, // white front bezel
-    glass:   0x23241f, // dark inset screen glass (kept dark for contrast)
     vent:    0xe2e2e2, // soft recessed vents/slot
     foot:    0xdadada, // soft feet
     phosphor:0xf7f7f7, // pale phosphor (screen background)
@@ -63,7 +62,6 @@ function initScene(canvas) {
   const matBody  = new THREE.MeshStandardMaterial({ color: C.body,   roughness: 0.82, metalness: 0.03 });
   const matBezel = new THREE.MeshStandardMaterial({ color: C.bezel,  roughness: 0.78, metalness: 0.03 });
   const matBodyDk= new THREE.MeshStandardMaterial({ color: C.bodyDk, roughness: 0.85, metalness: 0.03 });
-  const matGlass = new THREE.MeshStandardMaterial({ color: C.glass,  roughness: 0.35, metalness: 0.10 });
   const matVent  = new THREE.MeshStandardMaterial({ color: C.vent,   roughness: 0.9,  metalness: 0.02 });
   const matFoot  = new THREE.MeshStandardMaterial({ color: C.foot,   roughness: 0.7,  metalness: 0.05 });
 
@@ -125,10 +123,8 @@ function initScene(canvas) {
   bezel.position.set(0, 0.22, 0.94);
   computer.add(bezel);
 
-  // --- Inset dark screen glass (recessed, curved-corner) ---
-  const glass = roundedBox(1.78, 1.5, 0.06, 0.16, matGlass);
-  glass.position.set(0, 0.32, 0.97);
-  computer.add(glass);
+  // (No dark inset "glass" mesh — it z-fought with the bezel behind it and
+  // flickered. The album-art screen plane below sits directly over the bezel.)
 
   // --- The phosphor display: a redrawable canvas texture. Default shows
   // "Sami here,"; once the Spotify glue calls window.heroScreen.enable() it
@@ -138,7 +134,7 @@ function initScene(canvas) {
   screenCanvas.width = SCW; screenCanvas.height = SCH;
   const sctx = screenCanvas.getContext('2d');
 
-  const player = { mode: 'idle', art: null, playing: false };
+  const player = { mode: 'idle', art: null, playing: false, hover: null };
 
   // Control hit-regions (canvas px) — shared by the icon drawing and click test.
   const BAR_H = SCH * 0.26;
@@ -220,6 +216,12 @@ function initScene(canvas) {
     const sh = g.createLinearGradient(0, BAR_Y - BAR_H * 0.5, 0, H);
     sh.addColorStop(0, 'rgba(0,0,0,0)'); sh.addColorStop(1, 'rgba(0,0,0,0.74)');
     g.fillStyle = sh; g.fillRect(0, BAR_Y - BAR_H * 0.5, W, H - (BAR_Y - BAR_H * 0.5));
+    // Hover backdrop: a soft disc behind the control the pointer is over.
+    if (player.hover && BTN[player.hover]) {
+      const b = BTN[player.hover];
+      g.beginPath(); g.arc(b.x, b.y, BTN_R * 1.55, 0, Math.PI * 2);
+      g.fillStyle = 'rgba(255,255,255,0.22)'; g.fill();
+    }
     icon('prev', BTN.prev.x, BTN.prev.y);
     icon(player.playing ? 'pause' : 'play', BTN.toggle.x, BTN.toggle.y);
     icon('next', BTN.next.x, BTN.next.y);
@@ -257,11 +259,8 @@ function initScene(canvas) {
 
   // Unlit so the screen is self-illuminated (a real display), showing album art
   // at full brightness/colour instead of being darkened by scene lighting.
-  // depthTest:false + a high renderOrder take the screen OUT of the depth buffer
-  // entirely so it always draws cleanly on top of the dark glass just behind it.
-  // That z-fight (made unfixable by the camera's near:0.1/far:100 depth precision)
-  // was the "glitch": MSAA mixing the screen with the dark glass into a dark,
-  // desaturated, dithered mess.
+  // depthTest:false + a high renderOrder keep the screen out of the depth buffer
+  // so it always composites cleanly on top of the bezel (no z-fighting).
   const matScreen = new THREE.MeshBasicMaterial({
     map: screenTex, toneMapped: false, depthTest: false,
   });
@@ -296,7 +295,10 @@ function initScene(canvas) {
   }
 
   window.addEventListener('mousemove', (e) => {
-    if (player.mode === 'player') canvas.style.cursor = pickControl(e.clientX, e.clientY) ? 'pointer' : '';
+    if (player.mode !== 'player') return;
+    const ctrl = pickControl(e.clientX, e.clientY);
+    canvas.style.cursor = ctrl ? 'pointer' : '';
+    if (ctrl !== player.hover) { player.hover = ctrl; refresh(); } // redraw hover highlight
   });
   window.addEventListener('click', (e) => {
     const ctrl = pickControl(e.clientX, e.clientY);
