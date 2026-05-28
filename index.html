@@ -446,8 +446,8 @@
 
             <!-- stage: input -->
             <div id="chat-input-stage" class="chat-stage w-full flex-col items-center hidden" style="transition: opacity .4s, filter .4s, transform .4s">
-              <input id="chat-input" type="text" placeholder="Type something amazing..."
-                     class="w-full max-w-2xl font-display text-4xl md:text-6xl font-black tracking-[-0.015em] bg-transparent border-b-8 border-zinc-900 text-center text-zinc-900 placeholder:text-zinc-200 focus:outline-none pb-4" />
+              <input id="chat-input" type="text" placeholder="fire away"
+                     class="w-full max-w-2xl font-display text-4xl md:text-6xl font-black tracking-[-0.015em] bg-transparent text-center text-zinc-900 placeholder:text-zinc-200 focus:outline-none pb-4" />
               <p class="mt-8 text-sm font-medium tracking-[0.2em] text-zinc-400">Press Enter to send</p>
             </div>
 
@@ -650,13 +650,23 @@
         hdHover.style.filter = 'blur(12px)'; hdHover.style.opacity = '0';
         socials.style.opacity = '1';
       }
-      function askAgainControl() {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.textContent = 'ask again ↵';
-        btn.className = 'self-center mt-2 text-sm font-medium tracking-[0.2em] uppercase text-zinc-400 hover:text-zinc-900 transition-colors cursor-pointer';
-        btn.addEventListener('click', toInputStage);
-        threadStage.appendChild(btn);
+      // After a reply, drop a fresh input right below it (reply stays visible,
+      // no extra click needed) so the next prompt can be fired immediately.
+      function appendInlineInput() {
+        const inp = document.createElement('input');
+        inp.type = 'text';
+        inp.placeholder = 'fire away';
+        inp.className = 'self-center mt-4 w-full max-w-2xl font-display text-2xl md:text-3xl font-black tracking-[-0.015em] bg-transparent text-center text-zinc-900 placeholder:text-zinc-200 focus:outline-none';
+        inp.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' && inp.value.trim()) {
+            sendChat(inp.value.trim());
+          } else if (e.key === 'Escape') {
+            e.preventDefault();
+            toPromptStage();
+          }
+        });
+        threadStage.appendChild(inp);
+        setTimeout(() => inp.focus(), 50);
       }
       async function sendChat(userMsg) {
         conversation.push({ role: 'user', content: userMsg });
@@ -681,7 +691,7 @@
         }
         typing.remove();
         bubble('sami', replyText);
-        askAgainControl();
+        appendInlineInput();
       }
       input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && input.value.trim()) {
