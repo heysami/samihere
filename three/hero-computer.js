@@ -226,16 +226,18 @@ function initScene(canvas) {
     scanlinesAndSheen();
   }
 
-  // The screen canvas is 512×425 — non-power-of-two. Auto-generated mipmaps on a
-  // NPOT texture render dark/blocky with a garbage corner on some GPUs (notably
-  // Apple/ANGLE), which was the CRT glitch. LinearFilter + no mipmaps is the
-  // correct setup for a live canvas display and is valid for NPOT on all backends.
+  // The 512-px screen canvas is minified ~5-6× onto the small CRT plane, which is
+  // also viewed at an angle. Without mipmaps + anisotropy the high-contrast album
+  // art aliases into a dark cross-hatch/halftone moiré (the "glitch"). Trilinear
+  // mipmapping + max anisotropy gives a clean, properly downsampled image.
+  const MAX_ANISO = renderer.capabilities.getMaxAnisotropy();
   function makeScreenTexture() {
     const t = new THREE.CanvasTexture(screenCanvas);
     t.colorSpace = THREE.SRGBColorSpace;
-    t.minFilter = THREE.LinearFilter;
+    t.generateMipmaps = true;
+    t.minFilter = THREE.LinearMipmapLinearFilter;
     t.magFilter = THREE.LinearFilter;
-    t.generateMipmaps = false;
+    t.anisotropy = MAX_ANISO;
     return t;
   }
 
