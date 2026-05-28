@@ -1,70 +1,103 @@
-// Serverless playlist reader (Vercel, Node runtime).
+// Serverless playlist reader (Vercel, Node runtime) — no credentials needed.
 //
-// Uses Spotify's Client-Credentials flow (your app's id/secret, server-side —
-// no visitor login) to read a public playlist and return each track's URI,
-// title, artist, and album-art URL. The CRT player uses this for artwork and
-// for next/previous. Set in Vercel → Settings → Environment Variables:
-//   SPOTIFY_CLIENT_ID       from developer.spotify.com/dashboard
-//   SPOTIFY_CLIENT_SECRET   from the same app's settings
-// Optional:
-//   SPOTIFY_PLAYLIST_ID     defaults to the playlist below
+// Spotify's Web API refuses public playlists via app tokens (403), so instead
+// we read the SAME public data Spotify's own embed serves: the playlist embed
+// page carries the track list + 30s preview MP3s, and each track's oEmbed gives
+// its album art. The CRT player streams the preview MP3s directly, so it works
+// for every visitor (no login / Premium needed).
+//
+// Optional env: SPOTIFY_PLAYLIST_ID (defaults to the playlist below).
 
 const PLAYLIST_ID = process.env.SPOTIFY_PLAYLIST_ID || '2KOwOAsQJBEwu4xKscduEq';
-const MAX_TRACKS = 200;
+const MAX_TRACKS = 100;
+const MAX_ART = 60; // per-track art lookups on a cache miss
+const UA = 'Mozilla/5.0 (compatible; PortfolioPlayer/1.0)';
 
-let tokenCache = { value: null, exp: 0 };
 let listCache = { value: null, exp: 0 };
 
-async function getToken() {
-  const now = Date.now();
-  if (tokenCache.value && now < tokenCache.exp) return tokenCache.value;
-  const id = (process.env.SPOTIFY_CLIENT_ID || '').trim();
-  const secret = (process.env.SPOTIFY_CLIENT_SECRET || '').trim();
-  if (!id || !secret) throw new Error('env SPOTIFY_CLIENT_ID / SPOTIFY_CLIENT_SECRET not set');
-  const r = await fetch('https://accounts.spotify.com/api/token', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      Authorization: 'Basic ' + Buffer.from(id + ':' + secret).toString('base64'),
-    },
-    body: 'grant_type=client_credentials',
-  });
-  const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error('token ' + r.status + ': ' + (j.error_description || j.error || 'unknown'));
-  tokenCache = { value: j.access_token, exp: now + (j.expires_in - 60) * 1000 };
-  return tokenCache.value;
+function nextData(html) {
+  const m = html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/);
+  return m ? JSON.parse(m[1]) : null;
+}
+
+function findTrackList(o) {
+  if (o && typeof o === 'object') {
+    if (Array.isArray(o.trackList)) return o.trackList;
+    for (const k in o) {
+      const r = findTrackList(o[k]);
+      if (r) return r;
+    }
+  }
+  return null;
+}
+
+function findCover(o) {
+  if (o && typeof o === 'object') {
+    if (o.coverArt && o.coverArt.sources && o.coverArt.sources[0]) return o.coverArt.sources[0].url;
+    for (const k in o) {
+      const r = findCover(o[k]);
+      if (r) return r;
+    }
+  }
+  return null;
+}
+
+// Normalize any Spotify image URL to the CORS-enabled i.scdn.co host so the
+// art can be drawn into the WebGL canvas without tainting it.
+function toScdn(url) {
+  if (!url) return '';
+  const m = url.match(/image\/([a-zA-Z0-9]+)/);
+  return m ? 'https://i.scdn.co/image/' + m[1] : '';
+}
+
+async function artForTrack(trackId, fallback) {
+  try {
+    const r = await fetch('https://open.spotify.com/oembed?url=https://open.spotify.com/track/' + trackId, {
+      headers: { 'User-Agent': UA },
+    });
+    if (!r.ok) return fallback;
+    const j = await r.json();
+    return toScdn(j.thumbnail_url) || fallback;
+  } catch (e) {
+    return fallback;
+  }
 }
 
 async function getTracks() {
   const now = Date.now();
   if (listCache.value && now < listCache.exp) return listCache.value;
-  const token = await getToken();
-  const fields = 'items(track(uri,name,artists(name),album(images))),next';
-  let url =
-    'https://api.spotify.com/v1/playlists/' +
-    PLAYLIST_ID +
-    '/tracks?limit=100&fields=' +
-    encodeURIComponent(fields);
-  const out = [];
-  while (url && out.length < MAX_TRACKS) {
-    const r = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error('playlist ' + r.status + ': ' + ((j.error && j.error.message) || 'unknown'));
-    for (const it of j.items || []) {
-      const t = it && it.track;
-      if (!t || !t.uri || t.uri.startsWith('spotify:local')) continue;
-      const imgs = (t.album && t.album.images) || [];
-      out.push({
-        uri: t.uri,
-        name: t.name || '',
-        artist: (t.artists || []).map((a) => a.name).join(', '),
-        art: (imgs[0] && imgs[0].url) || '',
-      });
-    }
-    url = j.next;
-  }
-  listCache = { value: out, exp: now + 10 * 60 * 1000 }; // 10-minute cache
-  return out;
+
+  const r = await fetch('https://open.spotify.com/embed/playlist/' + PLAYLIST_ID, {
+    headers: { 'User-Agent': UA },
+  });
+  if (!r.ok) throw new Error('embed ' + r.status);
+  const data = nextData(await r.text());
+  if (!data) throw new Error('no embed data (Spotify markup changed?)');
+
+  const tl = findTrackList(data) || [];
+  const cover = toScdn(findCover(data));
+
+  let tracks = tl
+    .filter((t) => t && t.uri && t.audioPreview && t.audioPreview.url)
+    .slice(0, MAX_TRACKS)
+    .map((t) => ({
+      uri: t.uri,
+      id: t.uri.split(':').pop(),
+      title: t.title || '',
+      artist: t.subtitle || '',
+      preview: t.audioPreview.url,
+      art: cover,
+    }));
+
+  if (!tracks.length) throw new Error('no playable tracks (previews unavailable)');
+
+  // Per-track album art (parallel, capped). Falls back to the playlist cover.
+  const head = tracks.slice(0, MAX_ART);
+  const arts = await Promise.all(head.map((t) => artForTrack(t.id, cover)));
+  head.forEach((t, i) => { t.art = arts[i] || cover; });
+
+  listCache = { value: tracks, exp: now + 10 * 60 * 1000 };
+  return tracks;
 }
 
 module.exports = async (req, res) => {
