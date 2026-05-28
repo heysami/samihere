@@ -130,8 +130,113 @@ function initScene(canvas) {
   glass.position.set(0, 0.32, 0.97);
   computer.add(glass);
 
-  // --- The phosphor display plane (canvas texture with "Sami here,") ---
-  const screenTex = makeScreenTexture();
+  // --- The phosphor display: a redrawable canvas texture. Default shows
+  // "Sami here,"; once the Spotify glue calls window.heroScreen.enable() it
+  // becomes a mini-player (album art + play/pause/prev/next icons). ---
+  const SCW = 512, SCH = Math.round(512 * 0.83);
+  const screenCanvas = document.createElement('canvas');
+  screenCanvas.width = SCW; screenCanvas.height = SCH;
+  const sctx = screenCanvas.getContext('2d');
+
+  const player = { mode: 'idle', art: null, playing: false };
+
+  // Control hit-regions (canvas px) — shared by the icon drawing and click test.
+  const BAR_H = SCH * 0.26;
+  const BAR_Y = SCH - BAR_H;
+  const BTN_GAP = SCW * 0.2;
+  const BTN_R = BAR_H * 0.3;
+  const BTN = {
+    prev:   { x: SCW / 2 - BTN_GAP, y: BAR_Y + BAR_H / 2 },
+    toggle: { x: SCW / 2,           y: BAR_Y + BAR_H / 2 },
+    next:   { x: SCW / 2 + BTN_GAP, y: BAR_Y + BAR_H / 2 },
+  };
+
+  function scanlinesAndSheen() {
+    const g = sctx, W = SCW, H = SCH;
+    g.globalAlpha = 0.06; g.fillStyle = '#000';
+    for (let y = 0; y < H; y += 3) g.fillRect(0, y, W, 1);
+    g.globalAlpha = 1;
+    const sheen = g.createLinearGradient(0, 0, W * 0.7, H * 0.7);
+    sheen.addColorStop(0, 'rgba(255,255,255,0.16)');
+    sheen.addColorStop(0.35, 'rgba(255,255,255,0)');
+    g.fillStyle = sheen; g.fillRect(0, 0, W, H);
+  }
+
+  function drawDefault() {
+    const g = sctx, W = SCW, H = SCH;
+    const grad = g.createRadialGradient(W * 0.5, H * 0.45, W * 0.1, W * 0.5, H * 0.5, W * 0.75);
+    grad.addColorStop(0, '#eef0ef'); grad.addColorStop(1, '#d7d8da');
+    g.fillStyle = grad; g.fillRect(0, 0, W, H);
+    g.fillStyle = '#26272b'; g.textBaseline = 'alphabetic';
+    const fontPx = Math.round(H * 0.26);
+    g.font = `700 ${fontPx}px "Courier New", "Courier", monospace`;
+    const x = W * 0.16;
+    g.fillText('Sami', x, H * 0.46);
+    g.fillText('here,', x, H * 0.46 + fontPx * 1.12);
+    scanlinesAndSheen();
+  }
+
+  function drawCover(img) {
+    const W = SCW, H = BAR_Y; // art fills the area above the control bar
+    const ir = img.width / img.height, ar = W / H;
+    let dw, dh;
+    if (ir > ar) { dh = H; dw = H * ir; } else { dw = W; dh = W / ir; }
+    sctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+  }
+
+  function icon(name, x, y) {
+    const g = sctx, r = BTN_R;
+    g.save();
+    g.fillStyle = 'rgba(255,255,255,0.97)';
+    if (name === 'next' || name === 'prev') {
+      const s = name === 'prev' ? -1 : 1;
+      const tw = r * 0.78, th = r * 0.9;
+      for (const off of [-tw * 0.5, tw * 0.45]) {
+        g.beginPath();
+        g.moveTo(x + s * (off - tw / 2), y - th / 2);
+        g.lineTo(x + s * (off + tw / 2), y);
+        g.lineTo(x + s * (off - tw / 2), y + th / 2);
+        g.closePath(); g.fill();
+      }
+      g.fillRect(x + s * (tw * 0.95), y - th / 2, Math.max(2, r * 0.18), th);
+    } else if (name === 'play') {
+      const s = r * 0.95;
+      g.beginPath();
+      g.moveTo(x - s * 0.42, y - s * 0.62);
+      g.lineTo(x + s * 0.72, y);
+      g.lineTo(x - s * 0.42, y + s * 0.62);
+      g.closePath(); g.fill();
+    } else if (name === 'pause') {
+      const bw = r * 0.34, bh = r * 1.25, gap = r * 0.32;
+      g.fillRect(x - gap - bw, y - bh / 2, bw, bh);
+      g.fillRect(x + gap, y - bh / 2, bw, bh);
+    }
+    g.restore();
+  }
+
+  function drawPlayer() {
+    const g = sctx, W = SCW, H = SCH;
+    g.fillStyle = '#111'; g.fillRect(0, 0, W, H);
+    if (player.art) { try { drawCover(player.art); } catch (e) {} }
+    const sh = g.createLinearGradient(0, BAR_Y - BAR_H * 0.5, 0, H);
+    sh.addColorStop(0, 'rgba(0,0,0,0)'); sh.addColorStop(1, 'rgba(0,0,0,0.74)');
+    g.fillStyle = sh; g.fillRect(0, BAR_Y - BAR_H * 0.5, W, H - (BAR_Y - BAR_H * 0.5));
+    icon('prev', BTN.prev.x, BTN.prev.y);
+    icon(player.playing ? 'pause' : 'play', BTN.toggle.x, BTN.toggle.y);
+    icon('next', BTN.next.x, BTN.next.y);
+    scanlinesAndSheen();
+  }
+
+  function refresh() {
+    if (player.mode === 'player') drawPlayer(); else drawDefault();
+    screenTex.needsUpdate = true;
+  }
+
+  drawDefault();
+  const screenTex = new THREE.CanvasTexture(screenCanvas);
+  screenTex.colorSpace = THREE.SRGBColorSpace;
+  screenTex.anisotropy = 4;
+
   const matScreen = new THREE.MeshStandardMaterial({
     map: screenTex,
     roughness: 0.5,
@@ -143,6 +248,55 @@ function initScene(canvas) {
   const screen = new THREE.Mesh(new THREE.PlaneGeometry(1.66, 1.38), matScreen);
   screen.position.set(0, 0.32, 1.005);
   computer.add(screen);
+
+  // ---- Pointer picking: map a screen-space click onto the CRT plane's UV,
+  // then to a control icon. Works regardless of DOM stacking (listens on window). ----
+  const raycaster = new THREE.Raycaster();
+  const ndc = new THREE.Vector2();
+  let controlCb = null;
+
+  function pickControl(clientX, clientY) {
+    if (player.mode !== 'player') return null;
+    const rect = canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return null;
+    ndc.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+    ndc.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(ndc, camera);
+    const hit = raycaster.intersectObject(screen, false)[0];
+    if (!hit || !hit.uv) return null;
+    const px = hit.uv.x * SCW;
+    const py = (1 - hit.uv.y) * SCH;
+    let best = null, bestD = BTN_R * 1.7;
+    for (const k of ['prev', 'toggle', 'next']) {
+      const d = Math.hypot(px - BTN[k].x, py - BTN[k].y);
+      if (d < bestD) { bestD = d; best = k; }
+    }
+    return best;
+  }
+
+  window.addEventListener('mousemove', (e) => {
+    if (player.mode === 'player') canvas.style.cursor = pickControl(e.clientX, e.clientY) ? 'pointer' : '';
+  });
+  window.addEventListener('click', (e) => {
+    const ctrl = pickControl(e.clientX, e.clientY);
+    if (ctrl && controlCb) controlCb(ctrl);
+  });
+
+  // ---- Public API for the Spotify glue (spotify-player.js) ----
+  window.heroScreen = {
+    enable() { player.mode = 'player'; refresh(); },
+    disable() { player.mode = 'idle'; refresh(); },
+    setArt(url) {
+      if (!url) { player.art = null; refresh(); return; }
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => { player.art = img; refresh(); };
+      img.onerror = () => { player.art = null; refresh(); };
+      img.src = url;
+    },
+    setPlaying(b) { player.playing = !!b; refresh(); },
+    onControl(cb) { controlCb = cb; },
+  };
 
   // --- Lower front control strip: recessed band holding vents + disk slot ---
   const strip = roundedBox(2.5, 0.62, 0.66, 0.14, matBodyDk);
@@ -298,51 +452,4 @@ function initScene(canvas) {
   } else if (!reduceMotion) {
     play();
   }
-}
-
-// ---- CanvasTexture: pale phosphor screen with chunky retro "Sami here," + scanlines ----
-function makeScreenTexture() {
-  const S = 512;
-  const c = document.createElement('canvas');
-  c.width = S; c.height = Math.round(S * 0.83); // match screen plane aspect (1.66/1.38)
-  const g = c.getContext('2d');
-  const W = c.width, H = c.height;
-
-  // Pale phosphor background with a soft vignette glow.
-  const grad = g.createRadialGradient(W * 0.5, H * 0.45, W * 0.1, W * 0.5, H * 0.5, W * 0.75);
-  grad.addColorStop(0, '#eef0ef');
-  grad.addColorStop(1, '#d7d8da');
-  g.fillStyle = grad;
-  g.fillRect(0, 0, W, H);
-
-  // Dark phosphor text — chunky monospace, two lines, left-aligned like the reference.
-  g.fillStyle = '#26272b';
-  g.textBaseline = 'alphabetic';
-  const fontPx = Math.round(H * 0.26);
-  g.font = `700 ${fontPx}px "Courier New", "Courier", monospace`;
-  // slight letter weight by drawing a faint shadow twice
-  const x = W * 0.16;
-  g.fillText('Sami', x, H * 0.46);
-  g.fillText('here,', x, H * 0.46 + fontPx * 1.12);
-
-  // Faint scanlines for the CRT feel (cheap horizontal stripes).
-  g.globalAlpha = 0.06;
-  g.fillStyle = '#000000';
-  for (let y = 0; y < H; y += 3) {
-    g.fillRect(0, y, W, 1);
-  }
-  g.globalAlpha = 1;
-
-  // Subtle screen sheen / curvature highlight in the upper-left.
-  const sheen = g.createLinearGradient(0, 0, W * 0.7, H * 0.7);
-  sheen.addColorStop(0, 'rgba(255,255,255,0.18)');
-  sheen.addColorStop(0.35, 'rgba(255,255,255,0)');
-  g.fillStyle = sheen;
-  g.fillRect(0, 0, W, H);
-
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = 4;
-  tex.needsUpdate = true;
-  return tex;
 }
