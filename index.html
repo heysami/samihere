@@ -745,10 +745,9 @@
       (function () {
         const FIELD_RADIUS = 400, FIELD_SIZE = FIELD_RADIUS * 2;
         const el = document.getElementById('glitch-field');
-        // The hero holds the CRT music player; keep the glitch off it so the
-        // album art stays crisp (a backdrop-filter can't exclude just the screen).
+        // Let the glitch play across the whole page; only suppress it right over the
+        // CRT album art (the backdrop-filter would distort the screen).
         const heroComputer = document.getElementById('hero-computer');
-        const heroSection = heroComputer ? heroComputer.closest('section') : null;
         // Filled disc (not a ring): strongest at the cursor, fading smoothly to 0 well
         // before the element edge (so no square boundary shows).
         const maskImage = 'radial-gradient(circle closest-side at center, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.85) 38%, rgba(0,0,0,0.45) 62%, rgba(0,0,0,0) 85%)';
@@ -773,9 +772,11 @@
           const scale = 0.35 + intensity * 0.65;
           el.style.transform = `translate3d(${(smoothedX - FIELD_RADIUS).toFixed(1)}px, ${(smoothedY - FIELD_RADIUS).toFixed(1)}px, 0) scale(${scale.toFixed(3)})`;
           let op = intensity;
-          if (heroSection) {
-            const r = heroSection.getBoundingClientRect();
-            if (smoothedY >= r.top && smoothedY <= r.bottom) op = 0; // hero in view → no glitch
+          if (heroComputer) {
+            const r = heroComputer.getBoundingClientRect();
+            const pad = 30; // only mute the glitch when the cursor is on (or just over) the CRT screen
+            if (smoothedX >= r.left - pad && smoothedX <= r.right + pad &&
+                smoothedY >= r.top - pad && smoothedY <= r.bottom + pad) op = 0;
           }
           el.style.opacity = op.toFixed(3);
           requestAnimationFrame(tick);
