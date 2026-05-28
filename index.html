@@ -1,0 +1,1234 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Portfolio website with transitions</title>
+    <meta name="description" content="This interactive portfolio website showcases unique illustrations and UI animations, enabling users to engage with dynamic content and chat with an AI assistant." />
+    <meta name="robots" content="noindex, nofollow" />
+
+    <!-- Display + body type faces (one-to-one with the reference) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Onest:wght@100..900&display=swap" />
+
+    <!-- Tailwind (Play CDN) so the reference's exact utility classes resolve verbatim -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Markdown renderer for the LLM-skills overlay (renders the real command .md text) -->
+    <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Onest', 'ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+              display: ['Bricolage Grotesque', 'ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+            },
+          },
+        },
+      };
+    </script>
+
+    <style>
+      html, body { height: 100%; margin: 0; font-family: 'Onest', ui-sans-serif, system-ui, sans-serif; }
+      #root { height: 100%; }
+      /* Bricolage Grotesque opsz auto-tuning + the reference's subtle global tracking. */
+      body { font-optical-sizing: auto; letter-spacing: -0.005em; }
+
+      /* ── Fixed left vertical nav (reference: website-gamma-red left rail) ── */
+      #side-nav .nav-label {
+        writing-mode: vertical-rl;
+        transform: rotate(180deg);
+        text-transform: uppercase;
+        font-size: 11px;
+        font-weight: 500;
+        letter-spacing: 0.15em;
+        cursor: pointer;
+        transition: opacity 200ms ease;
+      }
+      #side-nav .nav-label:hover { opacity: 0.7; }
+
+      /* ───────────────────────── motion/react → CSS port ─────────────────────────
+         Entrance reveals (initial → animate / whileInView). A `.reveal` starts hidden
+         and offset; adding `.in` springs it to rest. Hero reveals fire on load;
+         in-view sections toggle `.in` via IntersectionObserver (viewport once:false). */
+      .reveal { opacity: 0; transition: opacity .8s cubic-bezier(.16,1,.3,1), transform .8s cubic-bezier(.16,1,.3,1), filter .8s ease; will-change: opacity, transform; }
+      .reveal.r-up    { transform: translateY(50px); }
+      .reveal.r-up-sm { transform: translateY(20px); }
+      .reveal.r-scale { transform: scale(.9); }
+      .reveal.r-left  { transform: translateX(-50px); }
+      .reveal.in { opacity: 1; transform: none; }
+
+      /* Bento (Vibe-Code) cards: lift + deepen shadow on hover so it's obvious they're clickable.
+         Uses the CSS `translate` property (independent of the reveal `transform`) so it stays
+         snappy and never fights the entrance animation. */
+      .vibe-card { cursor: pointer; transition: translate .25s cubic-bezier(.16,1,.3,1), box-shadow .25s ease; will-change: translate; }
+      .vibe-card:hover { translate: 0 -8px; box-shadow: 0 24px 46px -14px rgba(24,24,27,.22), 0 8px 16px -10px rgba(24,24,27,.16); }
+
+      /* ── Diregram "rounded process node" cards for the bottom-right physics sim ──
+         A faithful copy of the attached node style: rounded rect, tiny PROCESS eyebrow,
+         red L:NN code, bold title. Light + dark variants. Driven by Matter.js bodies. */
+      #vibe-steps { pointer-events: none;   /* let clicks reach the card; mouse tracked via window */
+        background-color: #fcfcfd;
+        background-image: radial-gradient(circle, #d6dae3 1.1px, transparent 1.5px);
+        background-size: 15px 15px; }
+      .dnode { position: absolute; top: 0; left: 0; box-sizing: border-box; padding: 9px 11px 11px;
+        border-radius: 11px; background: #ffffff; border: 1px solid #ececec;
+        box-shadow: 0 4px 10px -4px rgba(20,22,40,.18), 0 1px 2px rgba(20,22,40,.06);
+        will-change: transform; transform-origin: 50% 50%; overflow: hidden; user-select: none; }
+      .dnode-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 5px; }
+      .dnode-kind { font-size: 8px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: #9aa0ad; }
+      .dnode-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 8px; font-weight: 600; color: #e23b5a; letter-spacing: .04em; }
+      .dnode-title { font-family: 'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif; font-weight: 700; font-size: 13px; line-height: 1.12; letter-spacing: -0.01em; color: #17171c; }
+      .dnode.is-dark { background: #18181b; border-color: #18181b; box-shadow: 0 6px 16px -5px rgba(0,0,0,.4); }
+      .dnode.is-dark .dnode-kind { color: #a1a1aa; }
+      .dnode.is-dark .dnode-title { color: #ffffff; }
+      .dnode.is-dark .dnode-code { color: #ff5d77; }
+
+      /* ── Bento infinite loops ── */
+      @keyframes slideY   { 0%{transform:translateY(0)} 50%{transform:translateY(-150px)} 100%{transform:translateY(0)} }
+      @keyframes pulseOp  { 0%,100%{opacity:.5} 50%{opacity:1} }
+      @keyframes notif    { 0%{transform:translateY(100px);opacity:0} 50%{transform:translateY(0);opacity:1} 100%{transform:translateY(-100px);opacity:0} }
+      @keyframes avatars  { 0%{transform:translateX(0)} 50%{transform:translateX(-100px)} 100%{transform:translateX(0)} }
+      @keyframes spin360  { to{transform:rotate(360deg)} }
+      @keyframes popScale { 0%,100%{transform:scale(1)} 50%{transform:scale(1.5)} }
+
+      .anim-slideY  { animation: slideY 4s ease-in-out infinite; }
+      .anim-pulse   { animation: pulseOp 2s ease-in-out infinite; }
+      .anim-notif   { animation: notif 3s ease-in-out infinite; }
+      .anim-avatars { animation: avatars 8s linear infinite; }
+      .anim-spin    { animation: spin360 1.5s linear infinite; }
+      .anim-pop     { animation: popScale 2s ease-in-out infinite; }
+
+      /* ── Clients vertical ticker ── */
+      @keyframes tickerUp   { 0%{transform:translateY(0)} 100%{transform:translateY(-50%)} }
+      @keyframes tickerDown { 0%{transform:translateY(-50%)} 100%{transform:translateY(0)} }
+
+      /* ── Chat typing dots ── */
+      @keyframes dotBounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+      .anim-dot { animation: dotBounce .6s ease-in-out infinite; }
+
+      /* ── Client logos: greyscale by default, full color on hover ── */
+      .client-logo {
+        max-height: 4.5rem;
+        width: auto;
+        max-width: 80%;
+        object-fit: contain;
+        filter: grayscale(1);
+        opacity: .55;
+        transition: filter .3s ease, opacity .3s ease;
+      }
+      .client-logo:hover {
+        filter: grayscale(0);
+        opacity: 1;
+      }
+
+      /* Emoji particles bursting from the cursor over client cards — launch up & out, then
+         fall with gravity. Motion blur via animated filter; per-keyframe easing = a real arc. */
+      @keyframes emojiBurst {
+        0% {
+          opacity: 0; filter: blur(3px);
+          transform: translate(-50%, -50%) scale(.35) rotate(0deg);
+          animation-timing-function: cubic-bezier(.1, .75, .3, 1);   /* launch, decelerating to apex */
+        }
+        12% { opacity: 1; }
+        38% {
+          opacity: 1; filter: blur(.4px);
+          transform: translate(calc(-50% + var(--dx) * .55), calc(-50% + var(--peakY))) scale(1.2) rotate(calc(var(--rot) * .4));
+          animation-timing-function: cubic-bezier(.5, 0, .9, .5);    /* fall, accelerating (gravity) */
+        }
+        100% {
+          opacity: 0; filter: blur(2.6px);
+          transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(.9) rotate(var(--rot));
+        }
+      }
+      .emoji-particle {
+        position: fixed; z-index: 9999; pointer-events: none; user-select: none;
+        line-height: 1; will-change: transform, opacity, filter;
+        animation: emojiBurst .9s linear forwards;
+      }
+
+      /* Black tooltip on the Instagram social icon. */
+      .ig-tip { position: relative; }
+      .ig-tip::after {
+        content: attr(data-tip);
+        position: absolute; bottom: calc(100% + 11px); left: 50%; z-index: 30;
+        transform: translateX(-50%) translateY(5px);
+        background: #18181b; color: #fff; font-size: 12px; font-weight: 500; white-space: nowrap;
+        padding: 6px 11px; border-radius: 9px; box-shadow: 0 8px 18px -8px rgba(0,0,0,.45);
+        opacity: 0; pointer-events: none; transition: opacity .2s ease, transform .2s ease;
+      }
+      .ig-tip::before {
+        content: ''; position: absolute; bottom: calc(100% + 4px); left: 50%; z-index: 30;
+        transform: translateX(-50%) translateY(5px);
+        border: 5px solid transparent; border-top-color: #18181b;
+        opacity: 0; pointer-events: none; transition: opacity .2s ease, transform .2s ease;
+      }
+      .ig-tip:hover::after, .ig-tip:hover::before { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+      /* ───────────────────────── Hero composite layers ─────────────────────────
+         Layer order (back→front): neutral B&W sofa (transparent cutout) · 3D
+         computer on the LEFT seat · person reclining on the RIGHT with legs
+         crossing in front of the computer's base. Arranged after the reference
+         hero image reference/full composition.png. `grayscale(1)` guarantees a
+         neutral (no-sepia) tone on the rasters regardless of their source cast. */
+      .hero-composite { position: relative; width: 100%; max-width: 52rem; margin: 0 auto; aspect-ratio: 620 / 340; }
+      .hero-composite > * { position: absolute; }
+      /* Staggered hero-layer entrance — each layer fades/rises in on its own small delay. */
+      .hero-composite .lyr { opacity: 0; transform: translateY(16px); transition: opacity .45s cubic-bezier(.16,1,.3,1), transform .45s cubic-bezier(.16,1,.3,1); }
+      .hero-composite .lyr.in { opacity: 1; transform: none; }
+      .hero-sofa   { inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: center bottom; z-index: 1; filter: grayscale(1) drop-shadow(0 16px 22px rgba(0,0,0,.14)); }
+      .hero-3d     { left: 17%; top: 13%; width: 30%; height: 54%; z-index: 2; }
+      /* Soft contact shadow under the lower half of the computer only (grounds it on the sofa). */
+      .hero-3d-shadow { left: 19%; top: 52%; width: 26%; height: 9%; z-index: 1; border-radius: 50%;
+        background: radial-gradient(ellipse at center, rgba(0,0,0,.42) 0%, rgba(0,0,0,0) 72%); filter: blur(3px); }
+      /* Soft contact shadow under the lower half of the reclining person. */
+      .hero-person-shadow { left: 24%; top: 71%; width: 50%; height: 10%; z-index: 1; border-radius: 50%;
+        background: radial-gradient(ellipse at center, rgba(0,0,0,.4) 0%, rgba(0,0,0,0) 72%); filter: blur(4px); }
+      .hero-person { right: 19%; bottom: 24%; width: 64%; height: 82%; z-index: 3; object-fit: contain; object-position: bottom right; filter: grayscale(1); }
+
+      /* ═════════════════════ Vibe-Code project overlay (added) ═════════════════════
+         A fixed full-screen layer that surfaces a project page / two-option selector /
+         skills page when a bento card is clicked. The 5 bento cards themselves are NOT
+         modified — handlers attach by grid-position class at runtime. */
+      #vibe-overlay { position: fixed; inset: 0; z-index: 10000; display: flex; align-items: center; justify-content: center; padding: clamp(12px, 4vw, 48px); opacity: 0; pointer-events: none; transition: opacity .3s ease; }
+      #vibe-overlay.vo-open { opacity: 1; pointer-events: auto; }
+      .vo-backdrop { position: absolute; inset: 0; background: rgba(244,244,245,.7); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+      .vo-panel { position: relative; background: #fff; border: 1px solid #f4f4f5; border-radius: 28px; box-shadow: 0 30px 80px -22px rgba(0,0,0,.28); width: 100%; max-width: 980px; max-height: 88vh; display: flex; flex-direction: column; overflow: hidden;
+        transform: translateY(20px) scale(.985); transition: transform .42s cubic-bezier(.16,1,.3,1); }
+      #vibe-overlay.vo-open .vo-panel { transform: none; }
+      .vo-panel.vo-wide { max-width: 1120px; }
+      #vo-content { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+      .vo-scroll { flex: 1 1 auto; min-height: 0; min-width: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+      .vo-close { position: absolute; top: 16px; right: 16px; z-index: 6; width: 40px; height: 40px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,.85); border: 1px solid #e4e4e7; color: #18181b; cursor: pointer; transition: background .2s ease, color .2s ease, transform .25s ease; }
+      .vo-close:hover { background: #18181b; color: #fff; transform: rotate(90deg); }
+
+      /* project-page screenshot thumbnails */
+      .vo-thumb { border-radius: 12px; border: 1px solid #e4e4e7; object-fit: cover; cursor: pointer; opacity: .55; transition: opacity .2s ease, border-color .2s ease, transform .2s ease; }
+      .vo-thumb:hover { opacity: 1; transform: translateY(-2px); }
+      .vo-thumb.is-active { opacity: 1; border-color: #18181b; }
+      /* Placeholder slate (no screenshot available yet) */
+      .vo-placeholder { width: 100%; aspect-ratio: 16/9; border-radius: 18px; border: 1px dashed #d4d4d8; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: #a1a1aa;
+        background: repeating-linear-gradient(135deg, #fafafa 0 14px, #f4f4f5 14px 28px); }
+
+      /* ── Project detail: fixed image+heading on the left, scrolling detail on the right ── */
+      .vo-project { display: flex; flex-direction: column; }
+      .vo-proj-media { display: flex; flex-direction: column; gap: 20px; }
+      @media (min-width: 768px) {
+        .vo-project { flex-direction: row; height: min(84vh, 720px); }
+        .vo-proj-media { width: 55%; flex-shrink: 0; overflow: hidden; }   /* fixed — does not scroll */
+        .vo-proj-text  { width: 45%; overflow-y: auto; -webkit-overflow-scrolling: touch; }  /* scrolls independently */
+      }
+      /* Image viewport — clips an over-scaled screenshot that the cursor pans around. */
+      .vo-shot-frame { position: relative; overflow: hidden; border-radius: 16px; border: 1px solid #e4e4e7; background: #fff; }
+      @media (max-width: 767px) { .vo-shot-frame { aspect-ratio: 16/10; } }
+      @media (min-width: 768px) { .vo-shot-frame { flex: 1 1 auto; min-height: 0; } }
+      .vo-shot-pan { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center; transform: scale(1); transition: transform .25s ease-out; will-change: transform; }
+      .vo-shot-frame:hover .vo-shot-pan { transition: transform .08s ease-out; }
+      .vo-ph { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: #a1a1aa;
+        background: repeating-linear-gradient(135deg, #fafafa 0 14px, #f4f4f5 14px 28px); }
+      @media (max-width: 767px) { .vo-ph { aspect-ratio: 16/10; } }
+
+      /* skills page side-nav item */
+      .vo-skill { display: flex; flex-direction: column; gap: 2px; width: 100%; text-align: left; padding: 14px 16px; border-radius: 16px; cursor: pointer; transition: background .2s ease; border: 1px solid transparent; }
+      .vo-skill:hover { background: #f4f4f5; }
+      .vo-skill.is-active { background: #18181b; border-color: #18181b; }
+      .vo-skill.is-active .vo-skill-cmd { color: #fff; }
+      .vo-skill.is-active .vo-skill-sub { color: #a1a1aa; }
+
+      /* rendered markdown (the actual command prompt text) */
+      .md-body { color: #3f3f46; line-height: 1.62; font-size: 15px; }
+      .md-body > :first-child { margin-top: 0; }
+      .md-body h1 { font-family: 'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif; font-weight: 800; font-size: 1.9rem; line-height: 1.12; letter-spacing: -0.015em; color: #18181b; margin: 0 0 .55em; }
+      .md-body h2 { font-family: 'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif; font-weight: 700; font-size: 1.3rem; line-height: 1.25; color: #18181b; margin: 1.7em 0 .5em; padding-top: 1.2em; border-top: 1px solid #f4f4f5; }
+      .md-body h3 { font-family: 'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif; font-weight: 700; font-size: 1.05rem; color: #18181b; margin: 1.4em 0 .4em; }
+      .md-body h4 { font-weight: 700; font-size: .95rem; color: #18181b; margin: 1.2em 0 .35em; }
+      .md-body p { margin: .7em 0; }
+      .md-body ul, .md-body ol { margin: .6em 0; padding-left: 1.35em; }
+      .md-body ul { list-style: disc; } .md-body ol { list-style: decimal; }
+      .md-body li { margin: .32em 0; }
+      .md-body li::marker { color: #a1a1aa; }
+      .md-body a { color: #18181b; text-decoration: underline; text-underline-offset: 2px; }
+      .md-body strong { color: #18181b; font-weight: 700; }
+      .md-body em { font-style: italic; }
+      .md-body code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .85em; background: #f4f4f5; padding: .12em .42em; border-radius: 5px; color: #18181b; }
+      .md-body pre { background: #18181b; color: #fafafa; padding: 15px 18px; border-radius: 14px; overflow-x: auto; margin: 1em 0; font-size: 12.5px; line-height: 1.5; }
+      .md-body pre code { background: none; padding: 0; color: inherit; font-size: inherit; }
+      .md-body blockquote { border-left: 3px solid #18181b; margin: 1.1em 0; padding: .1em 0 .1em 1em; color: #52525b; font-style: italic; }
+      .md-body hr { border: none; border-top: 1px solid #e4e4e7; margin: 1.7em 0; }
+      .md-body table { width: 100%; border-collapse: collapse; margin: 1em 0; font-size: 12.5px; display: block; overflow-x: auto; }
+      .md-body th, .md-body td { border: 1px solid #e4e4e7; padding: 7px 10px; text-align: left; vertical-align: top; }
+      .md-body th { background: #fafafa; font-weight: 600; color: #18181b; }
+      .md-body h2:first-child, .md-body h1:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+
+      /* skill tabs (Overview / Prompt) */
+      .vo-tab { padding: 8px 16px; border-radius: 9999px; font-size: 13px; font-weight: 600; color: #71717a; cursor: pointer; transition: background .2s ease, color .2s ease; border: 1px solid transparent; }
+      .vo-tab:hover { color: #18181b; }
+      .vo-tab.is-active { background: #18181b; color: #fff; }
+      /* benchmark result placeholders */
+      .bench-shot { position: relative; aspect-ratio: 4/3; display: flex; align-items: center; justify-content: center; padding: 12px;
+        background: repeating-linear-gradient(135deg, #fafafa 0 12px, #f4f4f5 12px 24px); }
+      .bench-shot-label { font-size: 12px; font-weight: 600; color: #71717a; text-align: center; line-height: 1.3; }
+      .bench-best { position: absolute; top: 8px; right: 8px; font-size: 9px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; background: #18181b; color: #fff; padding: 3px 7px; border-radius: 9999px; }
+
+      /* ── Center card: hover-revealed GIF card + sonic-boom click effect ── */
+      .center-gif { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; background: #fff; opacity: 0; pointer-events: none; transition: opacity .3s ease; z-index: 5; }
+      .center-gif.show { opacity: 1; }
+      .cg-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+      /* Shader shockwave: an expanding RING masked over the chromatic-glitch backdrop filter.
+         The mask is hollow in the centre, peaks at the ring band, then fades over a WIDE halo so
+         the distortion bleeds well beyond the ring itself. */
+      @keyframes boomExpand { 0% { transform: translate(-50%,-50%) scale(.16); opacity: 0; } 14% { opacity: 1; } 100% { transform: translate(-50%,-50%) scale(8); opacity: 0; } }
+      .boom-ring { position: fixed; border-radius: 9999px; pointer-events: none; z-index: 9998; will-change: transform, opacity;
+        backdrop-filter: url(#chromatic-glitch-strong); -webkit-backdrop-filter: url(#chromatic-glitch-strong);
+        -webkit-mask-image: radial-gradient(circle closest-side at center, transparent 0 28%, rgba(0,0,0,.4) 44%, #000 55%, rgba(0,0,0,.55) 66%, rgba(0,0,0,.22) 82%, transparent 100%);
+        mask-image: radial-gradient(circle closest-side at center, transparent 0 28%, rgba(0,0,0,.4) 44%, #000 55%, rgba(0,0,0,.55) 66%, rgba(0,0,0,.22) 82%, transparent 100%);
+        animation: boomExpand .85s cubic-bezier(.16,1,.3,1) forwards; }
+      @keyframes cardPop { 0%,100% { transform: scale(1); } 38% { transform: scale(1.06); } }
+      .card-pop { animation: cardPop .45s ease; }
+    </style>
+  </head>
+
+  <body>
+    <div id="root">
+      <!-- ════════════════ FIXED LEFT VERTICAL NAV (ref: website-gamma-red left rail) ════════════════ -->
+      <nav id="side-nav" class="hidden md:flex fixed left-0 top-0 h-screen w-20 flex-col items-center justify-between py-8 text-zinc-900 bg-white/5 backdrop-blur-[1px]" style="z-index:70;">
+        <!-- Top: S. wordmark logo → Intro (section 0) -->
+        <div class="font-display font-bold text-xl cursor-pointer transition-opacity duration-200 hover:opacity-70" data-nav="0">S.</div>
+
+        <!-- Middle: rotated vertical section labels, evenly distributed -->
+        <div class="flex flex-col items-center gap-12">
+          <span class="nav-label" data-nav="0">Intro</span>
+          <span class="nav-label" data-nav="1">Vibe Code</span>
+          <span class="nav-label" data-nav="2">Clients</span>
+        </div>
+
+        <!-- Bottom: mail icon → Chat / contact (section 3) -->
+        <button type="button" data-nav="3" aria-label="Contact" class="cursor-pointer transition-opacity duration-200 hover:opacity-70">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect width="20" height="16" x="2" y="4" rx="2"/>
+            <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+          </svg>
+        </button>
+      </nav>
+
+      <!-- ════════════════ GLOBAL SHADER (cursor chromatic-glitch field) ════════════════ -->
+      <svg width="0" height="0" class="fixed pointer-events-none" style="z-index:-1">
+        <defs>
+          <!-- Sepia + blue chromatic glitch. Channel-complete split (a warm sepia/amber plane
+               + a complementary cool/blue plane) so the disc bulk reconstructs NEUTRAL (no
+               colored blob), leaving a warm sepia fringe on one edge and a blue fringe on the
+               other, plus the faint fractal-noise wobble. -->
+          <filter id="chromatic-glitch" color-interpolation-filters="sRGB" x="-10%" y="-10%" width="120%" height="120%">
+            <feColorMatrix in="SourceGraphic" type="matrix" values="1 0 0 0 0  0.66 0 0 0 0  0.30 0 0 0 0  0 0 0 1 0" result="warm" />
+            <feColorMatrix in="SourceGraphic" type="matrix" values="0.45 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 1 0" result="cool" />
+            <feOffset in="warm" result="warm_offset" dx="3"  dy="0" />
+            <feOffset in="cool" result="cool_offset" dx="-3" dy="0" />
+            <feBlend mode="screen" in="warm_offset" in2="cool_offset" result="cm" />
+            <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="1" result="noise" />
+            <feDisplacementMap in="cm" in2="noise" scale="4" xChannelSelector="R" yChannelSelector="G" />
+          </filter>
+          <!-- Stronger variant for the centre-card "boom" ring: wider chromatic split + heavier
+               turbulence displacement so the expanding ring reads as a forceful shader shockwave. -->
+          <filter id="chromatic-glitch-strong" color-interpolation-filters="sRGB" x="-40%" y="-40%" width="180%" height="180%">
+            <feColorMatrix in="SourceGraphic" type="matrix" values="1 0 0 0 0  0.6 0 0 0 0  0.24 0 0 0 0  0 0 0 1 0" result="warm" />
+            <feColorMatrix in="SourceGraphic" type="matrix" values="0.38 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 1 0" result="cool" />
+            <feOffset in="warm" result="warm_offset" dx="8"  dy="0" />
+            <feOffset in="cool" result="cool_offset" dx="-8" dy="0" />
+            <feBlend mode="screen" in="warm_offset" in2="cool_offset" result="cm" />
+            <feTurbulence type="fractalNoise" baseFrequency="0.03" numOctaves="2" result="noise" />
+            <feDisplacementMap in="cm" in2="noise" scale="16" xChannelSelector="R" yChannelSelector="G" />
+          </filter>
+        </defs>
+      </svg>
+      <div id="glitch-field" class="fixed top-0 left-0 pointer-events-none"></div>
+
+      <!-- ════════════════ SCROLL CONTAINER ════════════════ -->
+      <div id="scroller" class="h-screen w-full overflow-y-scroll snap-y snap-mandatory bg-white text-zinc-900 selection:bg-zinc-900 selection:text-white font-sans scroll-smooth">
+
+        <!-- ───────────── Section 1: Hero (composite hero image) ───────────── -->
+        <section class="h-screen w-full snap-start flex flex-col items-center justify-center p-8 relative overflow-hidden">
+          <div class="w-full max-w-5xl flex flex-col items-center gap-4 relative z-10 -translate-y-8">
+            <div id="hero-art" class="w-full">
+              <!-- Hero composite: B&W sofa raster · 3D computer (WebGL) · person illustration -->
+              <div class="hero-composite drop-shadow-sm">
+                <!-- Black silhouette of the computer, BEHIND the sofa (z-index 0): the sofa
+                     hides its lower part, so the outline only shows where the CRT rises above
+                     the sofa (against the white page). Rendered by hero-computer.js. -->
+                <canvas id="hero-computer-outline" class="hero-3d lyr" style="z-index:0;transition-delay:.2s" aria-hidden="true"></canvas>
+                <img class="hero-sofa lyr" style="transition-delay:0s" src="img/sofa.png" alt="Worn black-and-white leather chesterfield sofa" data-slot="hero-sofa" />
+                <div class="hero-3d-shadow lyr" style="transition-delay:.2s" aria-hidden="true"></div>
+                <canvas id="hero-computer" class="hero-3d lyr" style="transition-delay:.2s" aria-label="Old-school CRT computer reading 'Sami here,'" data-slot="hero-computer"></canvas>
+                <!-- Prefers the Quiver-generated vector (person.svg); falls back to the
+                     neutralized raster until the SVG-illustration node is re-run. -->
+                <div class="hero-person-shadow lyr" style="transition-delay:.1s" aria-hidden="true"></div>
+                <img class="hero-person lyr" style="transition-delay:.1s" src="img/person.svg" onerror="this.onerror=null;this.src='img/person.png'" alt="Illustrated person reclining on the sofa, waving" data-slot="hero-person" />
+              </div>
+            </div>
+
+            <div id="hero-title" class="reveal r-up-sm text-center">
+              <h1 class="font-display text-6xl md:text-8xl font-black tracking-[-0.015em] text-zinc-900">
+                Sami here,
+              </h1>
+            </div>
+          </div>
+        </section>
+
+        <!-- ───────────── Section 2: Bento grid of UI animations ───────────── -->
+        <section class="h-screen w-full snap-start flex items-center justify-center p-8 bg-zinc-50 relative overflow-hidden">
+          <div class="w-full h-full max-w-5xl max-h-[800px] grid grid-cols-3 grid-rows-3 gap-4 md:gap-6 p-4">
+
+            <!-- Card 1: VentureLab node graph — items loading with agents attached + links (atventure) -->
+            <div class="reveal r-scale vibe-card col-start-1 col-end-2 row-start-1 row-end-3 bg-white rounded-3xl shadow-sm border border-zinc-100 overflow-hidden relative">
+              <canvas id="vibe-graph" class="absolute inset-0 w-full h-full block"></canvas>
+            </div>
+
+            <!-- Card 2: animated ASCII-shader doge meme -->
+            <div class="reveal r-scale vibe-card col-start-2 col-end-4 row-start-1 row-end-2 bg-white rounded-3xl shadow-sm border border-zinc-100 overflow-hidden relative" style="transition-delay:.1s">
+              <canvas id="vibe-doge" class="absolute inset-0 w-full h-full block"></canvas>
+            </div>
+
+            <!-- Card 3: physics — funny "step" nodes rise from the bottom; mouse knocks them down -->
+            <div class="reveal r-scale vibe-card col-start-3 col-end-4 row-start-2 row-end-4 bg-white rounded-3xl shadow-sm border border-zinc-100 overflow-hidden relative" style="transition-delay:.2s">
+              <div id="vibe-steps" class="absolute inset-0"></div>
+            </div>
+
+            <!-- Card 4: 3D mau character + forward confetti (mauworld), mouse follows horizontally -->
+            <div class="reveal r-scale vibe-card col-start-1 col-end-3 row-start-3 row-end-4 bg-white rounded-3xl shadow-sm border border-zinc-100 overflow-hidden relative" style="transition-delay:.3s">
+              <canvas id="vibe-character" class="absolute inset-0 w-full h-full block"></canvas>
+            </div>
+
+            <!-- Card 5: central spinner -->
+            <div class="reveal r-scale vibe-card col-start-2 col-end-3 row-start-2 row-end-3 bg-zinc-900 rounded-3xl shadow-sm flex items-center justify-center p-8 overflow-hidden relative" style="transition-delay:.4s">
+              <div class="anim-spin w-24 h-24 border-8 border-zinc-800 border-t-white rounded-full"></div>
+              <div class="anim-pop absolute w-8 h-8 bg-white rounded-full"></div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ───────────── Section 3: Clients vertical news ticker ───────────── -->
+        <section class="h-screen w-full snap-start flex items-center p-8 lg:p-24 bg-zinc-50 relative overflow-hidden">
+          <div class="w-full max-w-7xl mx-auto flex flex-col md:flex-row items-center gap-16">
+
+            <div class="w-full md:w-1/3">
+              <h2 class="reveal r-left font-display text-7xl md:text-8xl font-black tracking-[-0.015em] text-zinc-900">Clients</h2>
+              <p class="reveal r-left mt-6 text-xl text-zinc-500 font-normal leading-relaxed" style="transition-delay:.2s">
+                13 years of these companies happily paying me. Thanks, bosses.
+              </p>
+            </div>
+
+            <div id="clients-ticker"
+                 class="w-full md:w-2/3 h-[70vh] flex gap-6 md:gap-8 overflow-hidden relative"
+                 style="-webkit-mask-image:linear-gradient(to bottom, transparent, black 10%, black 90%, transparent); mask-image:linear-gradient(to bottom, transparent, black 10%, black 90%, transparent)">
+              <!-- 3 columns injected by JS (up / down / up) -->
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ───────────── Section 4: Chat (interactive) ───────────── -->
+        <section class="h-screen w-full snap-start flex flex-col items-center justify-center p-8 bg-white relative">
+          <div class="w-full max-w-4xl mx-auto flex flex-col items-center justify-center min-h-[400px]">
+
+            <!-- stage: prompt -->
+            <div id="chat-prompt" class="chat-stage flex flex-col items-center" style="transition: opacity .4s, filter .4s, transform .4s">
+              <div id="chat-headline" class="relative h-24 md:h-32 flex items-center justify-center cursor-pointer group">
+                <h2 id="hd-rest"  class="absolute font-display text-6xl md:text-8xl font-black tracking-[-0.015em] text-zinc-900 whitespace-nowrap" style="transition:filter .3s, opacity .3s">stalk me</h2>
+                <h2 id="hd-hover" class="absolute font-display text-6xl md:text-8xl font-black tracking-[-0.015em] text-zinc-900 whitespace-nowrap" style="transition:filter .3s, opacity .3s; filter:blur(12px); opacity:0">click to chat</h2>
+              </div>
+              <div id="chat-socials" class="flex gap-6 mt-8 text-zinc-400" style="transition:opacity .3s">
+                <a href="https://github.com/heysami" target="_blank" rel="noopener" aria-label="GitHub" class="hover:text-zinc-900 transition-colors cursor-pointer">{{ICON:github}}</a>
+                <a href="https://www.linkedin.com/in/samiadji-ranggagani-b0a73148/" target="_blank" rel="noopener" aria-label="LinkedIn" class="hover:text-zinc-900 transition-colors cursor-pointer">{{ICON:linkedin}}</a>
+                <a href="https://www.instagram.com/ohhh.sami/" target="_blank" rel="noopener" aria-label="Instagram" class="ig-tip hover:text-zinc-900 transition-colors cursor-pointer" data-tip="nothing much really...">{{ICON:instagram}}</a>
+              </div>
+            </div>
+
+            <!-- stage: input -->
+            <div id="chat-input-stage" class="chat-stage w-full flex-col items-center hidden" style="transition: opacity .4s, filter .4s, transform .4s">
+              <input id="chat-input" type="text" placeholder="Type something amazing..."
+                     class="w-full max-w-2xl font-display text-4xl md:text-6xl font-black tracking-[-0.015em] bg-transparent border-b-8 border-zinc-900 text-center text-zinc-900 placeholder:text-zinc-200 focus:outline-none pb-4" />
+              <p class="mt-8 text-sm font-medium tracking-[0.2em] text-zinc-400">Press Enter to send</p>
+            </div>
+
+            <!-- stage: chat -->
+            <div id="chat-thread" class="chat-stage w-full max-w-2xl flex-col gap-6 hidden"></div>
+
+          </div>
+        </section>
+
+      </div>
+    </div>
+
+    <!-- 3D hero computer (Three.js scene wired to #hero-computer by the 3d drawer) -->
+    <script type="module" src="three/hero-computer.js"></script>
+
+    <!-- 3D mau character + forward confetti for the Vibe-Code bottom-left card -->
+    <script type="module" src="three/vibe-character.js"></script>
+
+    <!-- Matter.js physics — rising funny "step" nodes for the Vibe-Code bottom-right card -->
+    <script src="matter.min.js"></script>
+    <script src="vibe-steps.js"></script>
+
+    <!-- VentureLab node-graph (atventure canvas-views port) for the Vibe-Code top-left card -->
+    <script src="vibe-graph.js"></script>
+
+    <!-- Animated ASCII-shader doge meme for the Vibe-Code top-right card -->
+    <script src="vibe-doge.js"></script>
+
+    <!-- Left nav: click-to-scroll to matching full-screen section -->
+    <script>
+      (function () {
+        const sections = document.querySelectorAll('#scroller > section');
+        document.querySelectorAll('#side-nav [data-nav]').forEach(function (el) {
+          el.addEventListener('click', function () {
+            const i = +el.getAttribute('data-nav');
+            if (sections[i]) sections[i].scrollIntoView({ behavior: 'smooth' });
+          });
+        });
+      })();
+    </script>
+
+    <script>
+      /* ════════════════════ Inline lucide icons (symbolic, INLINE-OK) ════════════════════ */
+      const ICONS = {
+        // ticker (stroke 1.5, 48px)
+        triangle: '<path d="M13.73 4a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>',
+        circle:   '<circle cx="12" cy="12" r="10"/>',
+        square:   '<rect width="18" height="18" x="3" y="3" rx="2"/>',
+        hexagon:  '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>',
+        octagon:  '<polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86"/>',
+        star:     '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"/>',
+        cloud:    '<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>',
+        sun:      '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>',
+        moon:     '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
+        zap:      '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10"/>',
+        // socials (stroke 2, 32px)
+        twitter:  '<path d="M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z"/>',
+        github:   '<path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/>',
+        linkedin: '<path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect width="4" height="12" x="2" y="9"/><circle cx="4" cy="4" r="2"/>',
+        instagram:'<rect width="20" height="20" x="2" y="2" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/>',
+      };
+      const svgIcon = (name, size, sw) =>
+        `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">${ICONS[name]}</svg>`;
+
+      // hydrate social {{ICON:x}} placeholders
+      document.getElementById('chat-socials').innerHTML =
+        document.getElementById('chat-socials').innerHTML.replace(/\{\{ICON:(\w+)\}\}/g, (_, n) => svgIcon(n, 32, 2));
+
+      /* ════════════════════ Clients vertical ticker (3 columns) ════════════════════ */
+      const LOGOS = [
+        { file: 'changi.svg',        name: 'Changi Airport Group' },
+        { file: 'nlb.png',           name: 'National Library of Singapore' },
+        { file: 'starhub.svg',       name: 'StarHub' },
+        { file: 'csc.png',           name: 'Civil Service College' },
+        { file: 'mddi.png',          name: 'Ministry of Digital Development and Information' },
+        { file: 'aspial.png',        name: 'Aspial Group' },
+        { file: 'roche.svg',         name: 'Roche Diagnostics' },
+        { file: 'deloitte.svg',      name: 'Deloitte Consulting' },
+        { file: 'certis.png',        name: 'Certis Cisco' },
+        { file: 'teekay.svg',        name: 'Teekay Singapore' },
+        { file: 'edb.svg',           name: 'Singapore Economic Development Board' },
+        { file: 'st-logistics.png',  name: 'ST Logistics' },
+      ];
+      // One emoji per client (same client → same emoji), cycled across the four.
+      const EMOJIS = ['❤️', '💰', '🔥', '✨'];
+      function buildColumn(direction, speed, startIndex) {
+        // distribute the 12 logos across the 3 columns (4 per column)
+        const reordered = [...LOGOS.slice(startIndex), ...LOGOS.slice(0, startIndex)].slice(0, 4);
+        const list = [...reordered, ...reordered]; // doubled for seamless loop
+        const cells = list.map(l =>
+          `<div class="client-card h-32 w-full bg-white rounded-3xl shadow-sm border border-zinc-100 flex items-center justify-center p-6" data-emoji="${EMOJIS[LOGOS.indexOf(l) % EMOJIS.length]}"><img class="client-logo" src="img/logos/${l.file}" alt="${l.name}" title="${l.name}"></div>`
+        ).join('');
+        const col = document.createElement('div');
+        col.className = 'flex flex-col gap-8 w-1/3 relative overflow-hidden';
+        col.innerHTML = `<div class="flex flex-col gap-8" style="animation:ticker${direction==='up'?'Up':'Down'} ${speed}s linear infinite">${cells}</div>`;
+        return col;
+      }
+      const ticker = document.getElementById('clients-ticker');
+      ticker.appendChild(buildColumn('up', 25, 0));
+      ticker.appendChild(buildColumn('down', 35, 4));
+      ticker.appendChild(buildColumn('up', 28, 8));
+
+      /* ── Emoji particles: while the cursor is over a client card, that card's one emoji
+            constantly falls from the cursor (keeps emitting even when the mouse is still). ── */
+      (function () {
+        let hoverEmoji = null, curX = 0, curY = 0;
+        function track(e) {
+          const card = e.target.closest('.client-card');
+          if (card) { hoverEmoji = card.dataset.emoji; curX = e.clientX; curY = e.clientY; }
+          else { hoverEmoji = null; }
+        }
+        ticker.addEventListener('mouseover', track);   // fires on entry even without moving
+        ticker.addEventListener('mousemove', track);
+        ticker.addEventListener('mouseleave', () => { hoverEmoji = null; });
+        function spawn() {
+          const el = document.createElement('span');
+          el.className = 'emoji-particle';
+          el.textContent = hoverEmoji;
+          el.style.left = curX + 'px'; el.style.top = curY + 'px';
+          el.style.fontSize = (14 + Math.random() * 18) + 'px';
+          el.style.setProperty('--dx', ((Math.random() - 0.5) * 230).toFixed(1) + 'px');     // wide horizontal blast
+          el.style.setProperty('--peakY', (-(48 + Math.random() * 60)).toFixed(1) + 'px');   // launch UP to an apex
+          el.style.setProperty('--dy', (40 + Math.random() * 150).toFixed(1) + 'px');        // then fall past the cursor
+          el.style.setProperty('--rot', ((Math.random() - 0.5) * 440).toFixed(0) + 'deg');   // energetic spin
+          document.body.appendChild(el);
+          setTimeout(() => el.remove(), 1000);
+        }
+        setInterval(() => { if (hoverEmoji) { spawn(); spawn(); } }, 55);   // fast, lively burst while hovering
+      })();
+
+      /* ════════════════════ Chat state machine ════════════════════ */
+      const promptStage = document.getElementById('chat-prompt');
+      const headline    = document.getElementById('chat-headline');
+      const inputStage  = document.getElementById('chat-input-stage');
+      const threadStage = document.getElementById('chat-thread');
+      const hdRest  = document.getElementById('hd-rest');
+      const hdHover = document.getElementById('hd-hover');
+      const socials = document.getElementById('chat-socials');
+      const input   = document.getElementById('chat-input');
+
+      // Hover/click live on the headline only — so "click to chat" shows just for "stalk me",
+      // and the social icons below stay visible and clickable.
+      headline.addEventListener('mouseenter', () => {
+        hdRest.style.filter = 'blur(12px)';  hdRest.style.opacity = '0';
+        hdHover.style.filter = 'blur(0px)';  hdHover.style.opacity = '1';
+        socials.style.opacity = '0';
+      });
+      headline.addEventListener('mouseleave', () => {
+        hdRest.style.filter = 'blur(0px)';   hdRest.style.opacity = '1';
+        hdHover.style.filter = 'blur(12px)'; hdHover.style.opacity = '0';
+        socials.style.opacity = '1';
+      });
+      function showStage(el) {
+        [promptStage, inputStage, threadStage].forEach(s => { s.classList.add('hidden'); s.classList.remove('flex'); });
+        el.classList.remove('hidden'); el.classList.add('flex');
+      }
+      headline.addEventListener('click', () => {
+        showStage(inputStage);
+        inputStage.style.opacity = '0'; inputStage.style.filter = 'blur(10px)'; inputStage.style.transform = 'scale(1.05)';
+        requestAnimationFrame(() => { inputStage.style.opacity = '1'; inputStage.style.filter = 'blur(0)'; inputStage.style.transform = 'scale(1)'; });
+        setTimeout(() => input.focus(), 50);
+      });
+      function bubble(role, text) {
+        const base = 'max-w-[80%] p-6 rounded-3xl text-xl md:text-2xl font-normal leading-relaxed';
+        const skin = role === 'user'
+          ? 'bg-zinc-100 text-zinc-900 self-end rounded-br-none'
+          : 'bg-zinc-900 text-white self-start rounded-bl-none';
+        const d = document.createElement('div');
+        d.className = `${base} ${skin}`;
+        d.style.cssText = 'opacity:0;transform:scale(.9) translateY(10px);transition:opacity .35s,transform .35s';
+        d.textContent = text;
+        threadStage.appendChild(d);
+        requestAnimationFrame(() => { d.style.opacity = '1'; d.style.transform = 'none'; });
+        return d;
+      }
+      function typingBubble() {
+        const d = document.createElement('div');
+        d.className = 'bg-zinc-900 text-white self-start p-6 rounded-3xl rounded-bl-none flex gap-2 items-center h-[76px]';
+        d.innerHTML = [0,1,2].map(i => `<div class="anim-dot w-3 h-3 bg-white rounded-full" style="animation-delay:${i*0.15}s"></div>`).join('');
+        threadStage.appendChild(d);
+        return d;
+      }
+      // Full conversation is kept in memory for context; only the latest
+      // exchange is ever rendered. History resets on page refresh.
+      const conversation = [];
+
+      function toInputStage() {
+        input.value = '';
+        showStage(inputStage);
+        inputStage.style.opacity = '0'; inputStage.style.filter = 'blur(10px)'; inputStage.style.transform = 'scale(1.05)';
+        requestAnimationFrame(() => { inputStage.style.opacity = '1'; inputStage.style.filter = 'blur(0)'; inputStage.style.transform = 'scale(1)'; });
+        setTimeout(() => input.focus(), 50);
+      }
+      // Esc backs out of the input back to the "stalk me" headline.
+      function toPromptStage() {
+        input.value = '';
+        input.blur();
+        showStage(promptStage);
+        hdRest.style.filter = 'blur(0px)'; hdRest.style.opacity = '1';
+        hdHover.style.filter = 'blur(12px)'; hdHover.style.opacity = '0';
+        socials.style.opacity = '1';
+      }
+      function askAgainControl() {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = 'ask again ↵';
+        btn.className = 'self-center mt-2 text-sm font-medium tracking-[0.2em] uppercase text-zinc-400 hover:text-zinc-900 transition-colors cursor-pointer';
+        btn.addEventListener('click', toInputStage);
+        threadStage.appendChild(btn);
+      }
+      async function sendChat(userMsg) {
+        conversation.push({ role: 'user', content: userMsg });
+        showStage(threadStage);
+        threadStage.innerHTML = '';
+        bubble('user', userMsg);
+        const typing = typingBubble();
+        let replyText;
+        try {
+          const res = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ messages: conversation }),
+          });
+          const data = await res.json().catch(() => ({}));
+          replyText = data.reply || data.error || 'Something went sideways — give it another go in a sec.';
+          if (res.ok && data.reply && !data.blocked) {
+            conversation.push({ role: 'assistant', content: data.reply });
+          }
+        } catch (e) {
+          replyText = "I couldn't reach the server — check your connection and try again.";
+        }
+        typing.remove();
+        bubble('sami', replyText);
+        askAgainControl();
+      }
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && input.value.trim()) {
+          sendChat(input.value.trim());
+          input.value = '';
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          toPromptStage();
+        }
+      });
+
+      /* ════════════════════ Entrance reveals ════════════════════ */
+      // Hero animates on load (motion `animate`).
+      window.addEventListener('load', () => {
+        // Stagger the hero layers in — sofa, then person, then computer (per-layer transition-delay).
+        document.querySelectorAll('.hero-composite .lyr').forEach(el => el.classList.add('in'));
+        setTimeout(() => document.getElementById('hero-title').classList.add('in'), 380);
+      });
+      // In-view sections (motion `whileInView`, once:false → re-toggles).
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach(en => en.target.classList.toggle('in', en.isIntersecting));
+      }, { threshold: 0.3 });
+      document.querySelectorAll('.reveal:not(#hero-art):not(#hero-title)').forEach(el => io.observe(el));
+
+      /* ════════════════════ Global chromatic-glitch field (cursor) ════════════════════ */
+      (function () {
+        const FIELD_RADIUS = 400, FIELD_SIZE = FIELD_RADIUS * 2;
+        const el = document.getElementById('glitch-field');
+        // Filled disc (not a ring): strongest at the cursor, fading smoothly to 0 well
+        // before the element edge (so no square boundary shows).
+        const maskImage = 'radial-gradient(circle closest-side at center, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.85) 38%, rgba(0,0,0,0.45) 62%, rgba(0,0,0,0) 85%)';
+        Object.assign(el.style, {
+          width: FIELD_SIZE + 'px', height: FIELD_SIZE + 'px',
+          backdropFilter: 'url(#chromatic-glitch)', webkitBackdropFilter: 'url(#chromatic-glitch)',
+          clipPath: 'circle(50%)', webkitClipPath: 'circle(50%)',
+          maskImage, webkitMaskImage: maskImage,
+          opacity: 0, willChange: 'transform, opacity', zIndex: 9999,
+        });
+        let targetX = -FIELD_SIZE, targetY = -FIELD_SIZE, smoothedX = targetX, smoothedY = targetY;
+        let lastMoveTime = 0, intensity = 0;
+        window.addEventListener('mousemove', (e) => {
+          targetX = e.clientX; targetY = e.clientY; lastMoveTime = performance.now();
+          intensity = Math.min(1, intensity + 0.12);
+        });
+        (function tick() {
+          const idleFor = performance.now() - lastMoveTime;
+          if (idleFor > 60) { intensity *= 0.993; if (intensity < 0.001) intensity = 0; }
+          smoothedX += (targetX - smoothedX) * 0.35;
+          smoothedY += (targetY - smoothedY) * 0.35;
+          const scale = 0.35 + intensity * 0.65;
+          el.style.transform = `translate3d(${(smoothedX - FIELD_RADIUS).toFixed(1)}px, ${(smoothedY - FIELD_RADIUS).toFixed(1)}px, 0) scale(${scale.toFixed(3)})`;
+          el.style.opacity = intensity.toFixed(3);
+          requestAnimationFrame(tick);
+        })();
+      })();
+    </script>
+
+    <!-- ════════════════ VIBE-CODE PROJECT OVERLAY (added) ════════════════ -->
+    <div id="vibe-overlay" aria-hidden="true">
+      <div class="vo-backdrop" data-vo-close></div>
+      <div class="vo-panel" role="dialog" aria-modal="true" aria-label="Project details">
+        <button class="vo-close" type="button" data-vo-close aria-label="Close">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+        <div id="vo-content"></div>
+      </div>
+    </div>
+
+    <script>
+      /* ════════════════════ Vibe-Code section interactions ════════════════════
+         The 5 bento cards are NOT modified. Click handlers attach by grid-position
+         class at runtime and open a fixed overlay (project page / two-option
+         selector / skills page). The centre card additionally reveals a placeholder
+         GIF card on hover and shuffles + "sonic-booms" on click. */
+      (function () {
+        const K = 'text-xs font-semibold tracking-[0.2em] uppercase text-zinc-400';
+        const GH_ICON  = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg>';
+        const EXT_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>';
+        const ARR_ICON = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>';
+        const IMG_ICON = '<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>';
+        const DL_ICON  = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>';
+
+        /* ── Project data ── */
+        const GH = 'github', WEB = 'web';
+        const APPS = {
+          venturelab: {
+            kicker: 'Vibe-coded app', name: 'AI Venture Lab',
+            tagline: 'A studio that turns a one-line hunch into a defensible opportunity dossier, run by coordinated agent teams.',
+            shots: ['img/apps/venturelab-1.png','img/apps/venturelab-2.png','img/apps/venturelab-3.png','img/apps/venturelab-4.png','img/apps/venturelab-5.png','img/apps/venturelab-6.png'],
+            points: [
+              { h: 'Three-stage pipeline', b: 'Evidence extraction and clustering, then blinded micro-tests, then a simulated pilot and an editorial dossier.' },
+              { h: 'Grounded in your material', b: 'Reads your interview notes, voice memos and forum scrapes, then reasons only from what is actually there.' },
+              { h: 'Immersive or cockpit', b: 'Work from a calm single-prompt canvas, or a dense cockpit with a live ledger and spend caps.' },
+              { h: 'Bias-resistant by design', b: 'Blinded testers, defense records and a six-dimension scorecard cut confirmation bias out of the decision.' },
+            ],
+            links: [{ kind: GH, label: 'View on GitHub', href: 'https://github.com/heysami/atventure' }],
+          },
+          maumau: {
+            kicker: 'Vibe-coded app', name: 'Maumau', short: 'A personal AI team, from install to a first real run.',
+            tagline: 'A personal AI team that goes from install to a first real run, with guidance the whole way.',
+            shots: ['img/apps/maumau.png'],
+            points: [
+              { h: 'Yours to keep', b: 'Your data and your agents stay under your control, configured exactly the way you want them.' },
+              { h: 'Voice & telephony ready', b: 'Speech- and SMS-capable, so your agent can reach out and act in the world.' },
+              { h: 'Specialist teams', b: 'Spin up build, design, business and life agents that coordinate on your behalf.' },
+              { h: 'Guided to a real run', b: 'Install, connect and onboard without setup fatigue — you reach a working agent fast.' },
+            ],
+            links: [
+              { kind: WEB, label: 'Open the guide', href: 'https://mauworld.vercel.app/guide/' },
+              { kind: GH, label: 'View on GitHub', href: 'https://github.com/heysami/maumau' },
+            ],
+          },
+          mauworld: {
+            kicker: 'Vibe-coded app', name: 'MauWorld', short: 'A playful spatial social world where maus gather and explore.',
+            tagline: 'A playful spatial social world where maus gather, explore, and share the places they love.',
+            shots: ['img/apps/mauworld.png'],
+            points: [
+              { h: 'An explorable world', b: 'Wander a shared social space instead of scrolling a flat, endless feed.' },
+              { h: 'Discover & share places', b: 'Mark and surface the spots that matter, together with the people around you.' },
+              { h: 'Shared and live', b: 'Everyone moves through the same world at the same time, so it feels populated, never static.' },
+              { h: 'Built for gathering', b: 'Designed around showing up together, not broadcasting into the void.' },
+            ],
+            links: [
+              { kind: WEB, label: 'Enter MauWorld', href: 'https://mauworld.vercel.app/social/world.html' },
+              { kind: GH, label: 'View on GitHub', href: 'https://github.com/heysami/mauworld' },
+            ],
+          },
+          diregram: {
+            kicker: 'Vibe-coded app', name: 'Diregram', short: 'A “fun” diagramming canvas for app development.',
+            tagline: 'A “fun” diagramming canvas for app development — flows, notes and vision boards in one shared workspace.',
+            shots: ['img/apps/diregram-1.png'],
+            points: [
+              { h: 'Flows with linked data', b: 'Process nodes carry structured fields and linked data objects, not just labels.' },
+              { h: 'Never lose your place', b: 'Edits are saved as you go and reconcile automatically across everyone on the canvas.' },
+              { h: 'No-friction collaboration', b: 'Anonymous editing means you and your team jump straight onto the canvas.' },
+              { h: 'Many doc formats', b: 'Grid, note and vision layouts live side by side in a single workspace file.' },
+            ],
+            links: [
+              { kind: WEB, label: 'Open the workspace', href: 'https://diregram.vercel.app/workspace' },
+              { kind: GH, label: 'View on GitHub', href: 'https://github.com/heysami/diregram' },
+            ],
+          },
+          limn: {
+            kicker: 'Vibe-coded app', name: 'Limn', short: 'A vibe-coding studio where ideas become real interfaces.',
+            tagline: 'A vibe-coding studio where prompts, design systems and prototypes live together on one canvas.',
+            placeholder: true, shots: [],
+            points: [
+              { h: 'Prototype-first', b: 'Turn a one-line idea into a navigable, clickable interface in minutes.' },
+              { h: 'One canvas', b: 'Prompts, design systems and generated assets sit together as pieces you can rerun and rearrange.' },
+              { h: 'Visuals on demand', b: 'Hand off illustration, 3D, shaders and copy to specialists, all from one place.' },
+              { h: 'Branch, remix, merge', b: 'Fork an idea, compare directions side by side, then merge the winner.' },
+            ],
+            links: [],
+          },
+        };
+
+        const SELECTORS = {
+          mau:  { kicker: 'Pick a project', title: 'Two takes on mau', subtitle: 'One’s your AI team, the other’s a world to wander.', options: ['maumau', 'mauworld'] },
+          dire: { kicker: 'Pick a project', title: 'Pick your canvas',       subtitle: 'Choose which one to step into.', options: ['diregram', 'limn'] },
+        };
+
+        const SKILLS = [
+          {
+            cmd: '/prototype', name: 'Draw the interface', file: 'skills/prototype.md',
+            desc: 'Build an HTML/CSS/JS prototype that draws an interface — not one that architects an app. It commits to a genre up front and inherits its whole visual language.',
+            why: [
+              'Genre-first, so the result feels designed rather than boxed-and-greyed.',
+              'Produces a real, clickable screen in minutes, not a flat wireframe.',
+              'Hands the hard visuals — shaders, 3D, illustration — to specialists.',
+            ],
+            benchmark: {
+              kind: 'triple',
+              caption: 'Same brief, three ways — speed, cost and the screen each produced.',
+              example: 'Brief — “a calm daily habit tracker, mobile”',
+              columns: [
+                { label: 'With /prototype', speed: '42 s', dollar: '$0.05', best: true },
+                { label: 'Plain prompt', speed: '55 s', dollar: '$0.07' },
+                { label: 'Claude design', speed: '2 m 05 s', dollar: '$0.14' },
+              ],
+            },
+          },
+          {
+            cmd: '/wow-me', name: 'Design brief that wows', file: 'skills/wow-me.md',
+            desc: 'An interview that won’t let go until every persona has a felt-state paired with a revelation × technology that genuinely wows them.',
+            why: [
+              'Turns “make it delightful” into concrete, per-persona moments of wow.',
+              'Accounts for every touchpoint, so nothing ships flat.',
+              'Sets the emotional target the rest of the work designs against.',
+            ],
+            benchmark: {
+              kind: 'pair',
+              caption: 'Three briefs, each generated with and without the interview.',
+              examples: [
+                { title: 'Onboarding — a budgeting app', a: 'With /wow-me', b: 'Without' },
+                { title: 'Empty state — a notes app', a: 'With /wow-me', b: 'Without' },
+                { title: 'Pricing page — a SaaS tool', a: 'With /wow-me', b: 'Without' },
+              ],
+            },
+          },
+          {
+            cmd: '/vibe-check', name: 'Name the vibe', file: 'skills/vibe-check.md',
+            desc: 'An interview that keeps going until content, visual and motion combine into one impeccably supreme vibe — better than merely useful or pretty.',
+            why: [
+              'Names the aesthetic, giving the project a shared vocabulary.',
+              'Aligns type, colour and motion so nothing feels mismatched.',
+              'Leads with emotion, so the UI is felt, not just seen.',
+            ],
+            benchmark: {
+              kind: 'pair',
+              caption: 'Three briefs, each generated with and without the vibe pass.',
+              examples: [
+                { title: 'Landing page — a coffee brand', a: 'With /vibe-check', b: 'Without' },
+                { title: 'Dashboard — a music app', a: 'With /vibe-check', b: 'Without' },
+                { title: 'Profile screen — a travel app', a: 'With /vibe-check', b: 'Without' },
+              ],
+            },
+          },
+        ];
+
+        /* Centre-card cat gifs. Hover greets with a thumbs-up cat; each click shuffles to a
+           random "cat at a computer" gif. Swap any path to change the set. */
+        const GIF_HOVER = 'img/gifs/cat-thumbsup.gif';
+        const GIF_SET = [
+          'img/gifs/cat-laptop-grey.gif',
+          'img/gifs/cat-laptop-black.gif',
+          'img/gifs/cat-coding.gif',
+          'img/gifs/cat-office.gif',
+          'img/gifs/cat-typing.gif',
+        ];
+
+        /* ── Overlay plumbing ── */
+        const overlay = document.getElementById('vibe-overlay');
+        const panel   = overlay.querySelector('.vo-panel');
+        const content = document.getElementById('vo-content');
+
+        function openOverlay() {
+          overlay.classList.add('vo-open');
+          overlay.setAttribute('aria-hidden', 'false');
+          document.getElementById('scroller').style.overflow = 'hidden';
+        }
+        function closeOverlay() {
+          overlay.classList.remove('vo-open');
+          overlay.setAttribute('aria-hidden', 'true');
+          document.getElementById('scroller').style.overflow = '';
+        }
+        function setView(html, wide) {
+          content.innerHTML = html;
+          panel.classList.toggle('vo-wide', !!wide);
+          content.scrollTop = 0;
+          openOverlay();
+        }
+        overlay.querySelectorAll('[data-vo-close]').forEach(el => el.addEventListener('click', closeOverlay));
+        document.addEventListener('keydown', e => { if (e.key === 'Escape' && overlay.classList.contains('vo-open')) closeOverlay(); });
+
+        /* ── Renderers ── */
+        function linkBtn(l) {
+          const icon = l.kind === GH ? GH_ICON : EXT_ICON;
+          const skin = l.kind === GH
+            ? 'bg-zinc-900 text-white hover:bg-zinc-700'
+            : 'border border-zinc-300 text-zinc-900 hover:border-zinc-900';
+          return '<a href="' + l.href + '" target="_blank" rel="noopener" class="inline-flex items-center gap-2 px-5 py-3 rounded-full text-sm font-semibold transition-colors ' + skin + '">' + icon + l.label + '</a>';
+        }
+        function mediaFrame(app) {
+          if (app.placeholder) {
+            return '<div class="vo-shot-frame vo-ph">' + IMG_ICON + '<p class="text-sm font-medium tracking-wide">Screenshot coming soon</p></div>';
+          }
+          return '<div class="vo-shot-frame" id="vo-frame">' +
+            '<img id="vo-main" class="vo-shot-pan" src="' + app.shots[0] + '" alt="' + app.name + ' screenshot"></div>';
+        }
+        function thumbsRow(app) {
+          if (app.placeholder || app.shots.length < 2) return '';
+          return '<div class="grid grid-cols-6 gap-2 flex-shrink-0">' +
+            app.shots.map((s, i) => '<img class="vo-thumb h-14 w-full ' + (i === 0 ? 'is-active' : '') + '" data-shot="' + i + '" src="' + s + '" alt="' + app.name + ' ' + (i + 1) + '">').join('') +
+          '</div>';
+        }
+        function openProject(key) {
+          const app = APPS[key];
+          const linksHTML = app.links.length
+            ? app.links.map(linkBtn).join('')
+            : '<span class="text-sm text-zinc-400">Links coming soon.</span>';
+          const pointsHTML = app.points.map(p =>
+            '<div class="flex gap-4"><div class="mt-2 w-2 h-2 rounded-full bg-zinc-900 flex-shrink-0"></div>' +
+            '<div><h3 class="font-display text-lg font-bold text-zinc-900">' + p.h + '</h3>' +
+            '<p class="mt-1 text-zinc-500 leading-relaxed">' + p.b + '</p></div></div>'
+          ).join('');
+          // Left column (eyebrow + title + subtitle + image) is fixed; right column (detail) scrolls.
+          const html =
+            '<div class="vo-scroll"><div class="vo-project">' +
+              '<div class="vo-proj-media bg-zinc-50 border-b md:border-b-0 md:border-r border-zinc-100 p-8 md:p-10">' +
+                '<div class="flex-shrink-0">' +
+                  '<p class="' + K + ' mb-3">' + app.kicker + '</p>' +
+                  '<h2 class="font-display text-4xl md:text-5xl font-black tracking-[-0.015em] text-zinc-900">' + app.name + '</h2>' +
+                  '<p class="mt-3 text-lg text-zinc-500 leading-relaxed">' + app.tagline + '</p>' +
+                  '<div class="mt-5 flex flex-wrap items-center gap-3">' + linksHTML + '</div>' +
+                '</div>' +
+                mediaFrame(app) +
+                thumbsRow(app) +
+              '</div>' +
+              '<div class="vo-proj-text p-8 md:p-10 lg:p-12">' +
+                '<div class="space-y-5">' + pointsHTML + '</div>' +
+              '</div>' +
+            '</div></div>';
+          setView(html, true);
+
+          const main = document.getElementById('vo-main');
+          if (main) {
+            content.querySelectorAll('.vo-thumb').forEach(t => t.addEventListener('click', () => {
+              main.src = app.shots[+t.dataset.shot];
+              content.querySelectorAll('.vo-thumb').forEach(x => x.classList.remove('is-active'));
+              t.classList.add('is-active');
+            }));
+          }
+          // Cursor pans around the over-scaled screenshot (mouse only; touch leaves it centred).
+          const frame = document.getElementById('vo-frame');
+          if (frame && main) {
+            frame.addEventListener('mousemove', e => {
+              const r = frame.getBoundingClientRect();
+              const px = (e.clientX - r.left) / r.width;
+              const py = (e.clientY - r.top) / r.height;
+              const dx = (0.5 - px) * 9, dy = (0.5 - py) * 9;
+              main.style.transform = 'scale(1.16) translate(' + dx.toFixed(2) + '%,' + dy.toFixed(2) + '%)';
+            });
+            frame.addEventListener('mouseleave', () => { main.style.transform = ''; });
+          }
+        }
+        function openSelector(selKey) {
+          const sel = SELECTORS[selKey];
+          const cards = sel.options.map(key => {
+            const a = APPS[key];
+            const media = a.placeholder
+              ? '<div class="w-full h-full vo-placeholder" style="border:none;border-radius:0;aspect-ratio:auto">' + IMG_ICON + '</div>'
+              : '<img src="' + a.shots[0] + '" alt="' + a.name + '" class="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-500">';
+            return '<button type="button" data-open="' + key + '" class="group text-left rounded-3xl border border-zinc-100 bg-white hover:border-zinc-900 transition-colors overflow-hidden shadow-sm">' +
+              '<div class="aspect-[16/10] bg-zinc-50 overflow-hidden">' + media + '</div>' +
+              '<div class="p-6"><div class="flex items-center justify-between gap-3">' +
+                '<h3 class="font-display text-2xl font-black text-zinc-900">' + a.name + '</h3>' +
+                '<span class="text-zinc-300 group-hover:text-zinc-900 group-hover:translate-x-1 transition-all">' + ARR_ICON + '</span></div>' +
+                '<p class="mt-2 text-zinc-500 leading-relaxed">' + a.short + '</p></div></button>';
+          }).join('');
+          const html =
+            '<div class="vo-scroll"><div class="p-8 md:p-12">' +
+              '<p class="' + K + ' mb-3">' + sel.kicker + '</p>' +
+              '<h2 class="font-display text-3xl md:text-5xl font-black tracking-[-0.015em] text-zinc-900">' + sel.title + '</h2>' +
+              '<p class="mt-3 text-lg text-zinc-500">' + sel.subtitle + '</p>' +
+              '<div class="mt-8 grid md:grid-cols-2 gap-5">' + cards + '</div>' +
+            '</div></div>';
+          setView(html, false);
+          content.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => openProject(b.dataset.open)));
+        }
+        const mdCache = {};
+        const stripFrontmatter = md => md.replace(/^---[\s\S]*?\n---\s*/, '').trim();
+        function renderMarkdown(md) {
+          if (window.marked && typeof window.marked.parse === 'function') return window.marked.parse(md);
+          const esc = md.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          return '<pre style="white-space:pre-wrap">' + esc + '</pre>';
+        }
+        async function loadSkillMd(s) {
+          if (mdCache[s.file] == null) {
+            try {
+              const res = await fetch(s.file);
+              if (!res.ok) throw new Error(res.status);
+              mdCache[s.file] = stripFrontmatter(await res.text());
+            } catch (e) {
+              mdCache[s.file] = '# ' + s.cmd + '\n\nCould not load `' + s.file + '`. Serve the prototype over HTTP to read the prompt text.';
+            }
+          }
+          return mdCache[s.file];
+        }
+        // A labelled placeholder "result" tile (swap for real benchmark screenshots later).
+        function benchShot(label, best) {
+          return '<div class="bench-shot rounded-xl border border-zinc-100 overflow-hidden">' +
+            (best ? '<span class="bench-best">Best</span>' : '') +
+            '<span class="bench-shot-label">' + label + '<br><span class="text-zinc-300">result preview</span></span></div>';
+        }
+        function benchmarkHTML(b) {
+          if (b.kind === 'triple') {
+            const c = b.columns;
+            return '<p class="text-sm font-semibold text-zinc-700 mb-3">' + b.example + '</p>' +
+              '<div class="grid grid-cols-3 gap-3">' +
+              c.map(col =>
+                '<div class="rounded-2xl overflow-hidden bg-white ' + (col.best ? 'ring-2 ring-zinc-900' : 'border border-zinc-100') + '">' +
+                  benchShot(col.label, col.best) +
+                  '<div class="flex items-stretch divide-x divide-zinc-100 border-t border-zinc-100">' +
+                    '<div class="flex-1 px-3 py-2"><div class="text-[10px] uppercase tracking-wider text-zinc-400">Speed</div><div class="text-sm font-semibold text-zinc-900">' + col.speed + '</div></div>' +
+                    '<div class="flex-1 px-3 py-2"><div class="text-[10px] uppercase tracking-wider text-zinc-400">Cost</div><div class="text-sm font-semibold text-zinc-900">' + col.dollar + '</div></div>' +
+                  '</div>' +
+                  '<div class="px-3 py-2 text-xs font-semibold ' + (col.best ? 'text-zinc-900' : 'text-zinc-400') + '">' + col.label + '</div>' +
+                '</div>'
+              ).join('') +
+              '</div>' +
+              '<p class="mt-3 text-xs text-zinc-300">Figures illustrative.</p>';
+          }
+          // 'pair' — N examples, two image-only columns each
+          return b.examples.map(ex =>
+            '<div class="mb-6">' +
+              '<p class="text-sm font-semibold text-zinc-700 mb-2">' + ex.title + '</p>' +
+              '<div class="grid grid-cols-2 gap-3">' +
+                '<div class="rounded-2xl overflow-hidden ring-2 ring-zinc-900">' + benchShot(ex.a, true) + '<div class="px-3 py-2 text-xs font-semibold text-zinc-900">' + ex.a + '</div></div>' +
+                '<div class="rounded-2xl overflow-hidden border border-zinc-100">' + benchShot(ex.b, false) + '<div class="px-3 py-2 text-xs font-semibold text-zinc-400">' + ex.b + '</div></div>' +
+              '</div>' +
+            '</div>'
+          ).join('');
+        }
+        function overviewHTML(s) {
+          return '<div class="p-8 md:p-10">' +
+            '<p class="text-lg text-zinc-600 leading-relaxed max-w-2xl">' + s.desc + '</p>' +
+            '<h3 class="mt-8 font-display text-sm font-bold uppercase tracking-wider text-zinc-900">Why it&rsquo;s good</h3>' +
+            '<div class="mt-3 space-y-3 max-w-2xl">' +
+              s.why.map(w => '<div class="flex gap-3"><div class="mt-2 w-1.5 h-1.5 rounded-full bg-zinc-900 flex-shrink-0"></div><p class="text-zinc-500 leading-relaxed">' + w + '</p></div>').join('') +
+            '</div>' +
+            '<h3 class="mt-9 font-display text-sm font-bold uppercase tracking-wider text-zinc-900">Benchmark</h3>' +
+            '<p class="mt-1 mb-5 text-sm text-zinc-400 max-w-2xl">' + s.benchmark.caption + '</p>' +
+            benchmarkHTML(s.benchmark) +
+          '</div>';
+        }
+        function fillSkill(bodyEl, i) {
+          const s = SKILLS[i];
+          bodyEl.innerHTML =
+            '<div class="flex flex-col flex-1 min-h-0 min-w-0">' +
+              '<div class="px-8 md:px-10 pt-7 flex-shrink-0">' +
+                '<p class="' + K + '">LLM skill</p>' +
+                '<h2 class="font-display text-3xl md:text-4xl font-black tracking-[-0.015em] text-zinc-900 mt-1">' + s.cmd + '</h2>' +
+                '<div class="mt-5 flex gap-1.5 border-b border-zinc-100 -mb-px pb-3">' +
+                  '<button type="button" class="vo-tab is-active" data-tab="overview">Overview</button>' +
+                  '<button type="button" class="vo-tab" data-tab="prompt">Prompt</button>' +
+                '</div>' +
+              '</div>' +
+              '<div class="vo-scroll flex-1 min-h-0 min-w-0" id="skill-tabbody"></div>' +
+            '</div>';
+          const tabbody = bodyEl.querySelector('#skill-tabbody');
+          async function renderTab(tab) {
+            if (tab === 'prompt') {
+              tabbody.innerHTML = '<div class="p-8 md:p-10 text-sm text-zinc-400">Loading&hellip;</div>';
+              const md = await loadSkillMd(s);
+              tabbody.innerHTML =
+                '<div class="px-8 md:px-10 pt-6 flex justify-end">' +
+                  '<a href="' + s.file + '" download class="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-zinc-300 text-zinc-900 text-sm font-semibold hover:border-zinc-900 transition-colors">' + DL_ICON + 'Download .md</a>' +
+                '</div>' +
+                '<div class="px-8 md:px-10 pb-10 md-body">' + renderMarkdown(md) + '</div>';
+            } else {
+              tabbody.innerHTML = overviewHTML(s);
+            }
+            tabbody.scrollTop = 0;
+          }
+          bodyEl.querySelectorAll('.vo-tab').forEach(btn => btn.addEventListener('click', () => {
+            bodyEl.querySelectorAll('.vo-tab').forEach(x => x.classList.remove('is-active'));
+            btn.classList.add('is-active');
+            renderTab(btn.dataset.tab);
+          }));
+          renderTab('overview');
+        }
+        function openSkills() {
+          const nav = SKILLS.map((s, i) =>
+            '<button type="button" class="vo-skill ' + (i === 0 ? 'is-active' : '') + '" data-skill="' + i + '">' +
+              '<span class="vo-skill-cmd font-display text-base font-bold text-zinc-900">' + s.cmd + '</span>' +
+              '<span class="vo-skill-sub text-xs text-zinc-400">' + s.name + '</span></button>'
+          ).join('');
+          const html =
+            '<div class="flex flex-col md:flex-row" style="height:min(84vh,760px)">' +
+              '<aside class="md:w-72 flex-shrink-0 border-b md:border-b-0 md:border-r border-zinc-100 p-5 md:p-6 overflow-y-auto">' +
+                '<p class="' + K + ' mb-4">LLM skills &amp; prompts</p>' +
+                '<div class="flex md:flex-col gap-2" id="vo-skill-nav">' + nav + '</div>' +
+              '</aside>' +
+              '<div class="flex flex-col flex-1 min-h-0 min-w-0" id="vo-skill-body"></div>' +
+            '</div>';
+          setView(html, true);
+          const body = document.getElementById('vo-skill-body');
+          content.querySelectorAll('.vo-skill').forEach(btn => btn.addEventListener('click', () => {
+            content.querySelectorAll('.vo-skill').forEach(x => x.classList.remove('is-active'));
+            btn.classList.add('is-active');
+            fillSkill(body, +btn.dataset.skill);
+          }));
+          fillSkill(body, 0);
+        }
+
+        /* ── Shader shockwave: expanding chromatic-glitch rings out of a card centre ── */
+        function sonicBoom(el) {
+          const r = el.getBoundingClientRect();
+          const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+          const base = Math.max(r.width, r.height) * 0.95;
+          [0, 150].forEach(delay => {
+            const ring = document.createElement('div');
+            ring.className = 'boom-ring';
+            ring.style.left = cx + 'px'; ring.style.top = cy + 'px';
+            ring.style.width = base + 'px'; ring.style.height = base + 'px';
+            ring.style.animationDelay = delay + 'ms';
+            document.body.appendChild(ring);
+            setTimeout(() => ring.remove(), 1000 + delay);
+          });
+        }
+
+        /* ── Wire the 5 bento cards by grid-position class (no markup change) ── */
+        const card = sel => document.querySelector(sel);
+        const cTopLeft     = card('.col-start-1.col-end-2.row-start-1.row-end-3');
+        const cTopRight    = card('.col-start-2.col-end-4.row-start-1.row-end-2');
+        const cBottomRight = card('.col-start-3.col-end-4.row-start-2.row-end-4');
+        const cBottomLeft  = card('.col-start-1.col-end-3.row-start-3.row-end-4');
+        const cCenter      = card('.col-start-2.col-end-3.row-start-2.row-end-3');
+
+        function clickable(el, fn) { if (!el) return; el.style.cursor = 'pointer'; el.addEventListener('click', fn); }
+        clickable(cTopLeft,     () => openProject('venturelab'));
+        clickable(cTopRight,    () => openSkills());
+        clickable(cBottomRight, () => openSelector('dire'));
+        clickable(cBottomLeft,  () => openSelector('mau'));
+
+        /* ── Centre card: hover greets with thumbs-up cat, click shuffles a "cat at computer" + boom.
+           Once every gif has finished preloading, the black rotating spinner is hidden for good and
+           the gif layer stays shown — retaining the last-clicked cat at rest (greeting on hover). ── */
+        if (cCenter) {
+          cCenter.style.cursor = 'pointer';
+          const gifEl = document.createElement('div');
+          gifEl.className = 'center-gif';
+          cCenter.appendChild(gifEl);
+          let last = -1, lastClicked = null, hovering = false, allLoaded = false;
+          const showGif = src => { gifEl.innerHTML = '<img class="cg-img" src="' + src + '" alt="cat" draggable="false">'; };
+          // At rest show a cat-at-computer gif (never the thumbs-up — that only appears on hover);
+          // after a click, retain the last-clicked cat.
+          const GIF_DEFAULT = GIF_SET[Math.floor(Math.random() * GIF_SET.length)];
+          const restGif = () => lastClicked || GIF_DEFAULT;
+
+          // Preload every gif; once all are ready, hide the spinner and keep the gif layer shown.
+          let loaded = 0;
+          const ALL = [GIF_HOVER].concat(GIF_SET);
+          ALL.forEach(src => { const im = new Image(); im.onload = im.onerror = () => { if (++loaded >= ALL.length) onAllLoaded(); }; im.src = src; });
+          function onAllLoaded() {
+            allLoaded = true;
+            cCenter.querySelectorAll(':scope > :not(.center-gif)').forEach(el => { el.style.display = 'none'; }); // hide black spinner
+            if (!hovering) showGif(restGif());
+            gifEl.classList.add('show');   // gif layer stays visible from now on
+          }
+
+          cCenter.addEventListener('mouseenter', () => { hovering = true; showGif(GIF_HOVER); gifEl.classList.add('show'); });
+          cCenter.addEventListener('mouseleave', () => {
+            hovering = false;
+            if (allLoaded) showGif(restGif());     // retain last-clicked cat (or greeting) — no revert to spinner
+            else gifEl.classList.remove('show');   // still loading → fall back to spinner
+          });
+          cCenter.addEventListener('click', () => {
+            let n; do { n = Math.floor(Math.random() * GIF_SET.length); } while (GIF_SET.length > 1 && n === last);
+            last = n; lastClicked = GIF_SET[n]; showGif(lastClicked);
+            gifEl.classList.add('show');
+            sonicBoom(cCenter);
+            cCenter.classList.remove('card-pop'); void cCenter.offsetWidth; cCenter.classList.add('card-pop');
+          });
+        }
+
+      })();
+    </script>
+  </body>
+</html>

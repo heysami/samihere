@@ -1,0 +1,48 @@
+{
+  "project": "Sami here,",
+  "description": "One-to-one recreation of the 'sami here' portfolio: a single full-viewport scroll-snap page with four sections (composite hero, bento grid of UI micro-animations, vertical clients ticker, interactive chat) plus a cursor-following chromatic-glitch backdrop shader. The only change from the reference is the hero image: a 3-layer composite — a black-and-white raster sofa, a WebGL 3D CRT computer reading 'Sami here,', and a vector illustration of a reclining person.",
+  "genre": "Black-and-white indie portfolio; Bricolage Grotesque display + Onest body; snap-scroll storytelling with motion micro-interactions and a chromatic cursor shader",
+  "viewport": { "w": 1440, "h": 900 },
+  "lanes": [
+    { "id": "visitor", "label": "Visitor", "kind": "user" }
+  ],
+  "frames": [
+    {
+      "id": "index", "label": "Hero · composite (sofa + 3D computer + person)", "kind": "start", "lane": "visitor",
+      "parent": null, "hash": "", "entry": "index.html", "setupScript": null,
+      "col": 0, "row": 0, "w": 1440, "h": 900,
+      "entities": []
+    },
+    {
+      "id": "bento", "label": "Bento · UI animation grid", "kind": "step", "lane": "visitor",
+      "parent": null, "hash": "", "entry": "index.html",
+      "setupScript": "document.querySelectorAll('#scroller > section')[1].scrollIntoView()",
+      "col": 1, "row": 0, "w": 1440, "h": 900, "entities": []
+    },
+    {
+      "id": "clients", "label": "Clients · vertical ticker", "kind": "step", "lane": "visitor",
+      "parent": null, "hash": "", "entry": "index.html",
+      "setupScript": "document.querySelectorAll('#scroller > section')[2].scrollIntoView()",
+      "col": 2, "row": 0, "w": 1440, "h": 900, "entities": []
+    },
+    {
+      "id": "chat", "label": "Chat · prompt", "kind": "step", "lane": "visitor",
+      "parent": null, "hash": "", "entry": "index.html",
+      "setupScript": "document.querySelectorAll('#scroller > section')[3].scrollIntoView()",
+      "col": 3, "row": 0, "w": 1440, "h": 900, "entities": []
+    },
+    {
+      "id": "chat-thread", "label": "Chat · reply thread", "kind": "end", "lane": "visitor",
+      "parent": "chat", "hash": "", "entry": "index.html",
+      "setupScript": "document.querySelectorAll('#scroller > section')[3].scrollIntoView(); var p=document.getElementById('chat-prompt'); p.click(); var i=document.getElementById('chat-input'); i.value='What can you build for me?'; i.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter'}));",
+      "col": 4, "row": 0, "w": 1440, "h": 900, "entities": []
+    }
+  ],
+  "arrows": [
+    { "from": "index", "to": "bento", "label": "scroll down", "kind": "nav" },
+    { "from": "bento", "to": "clients", "label": "scroll down", "kind": "nav" },
+    { "from": "clients", "to": "chat", "label": "scroll down", "kind": "nav" },
+    { "from": "chat", "to": "chat-thread", "label": "click + type + Enter", "kind": "action" }
+  ],
+  "entities": []
+}
