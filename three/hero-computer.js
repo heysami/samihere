@@ -262,11 +262,25 @@ function initScene(canvas) {
 
   // TEMP DEBUG — read-only accessor to inspect the screen texture source. Remove after diagnosing.
   window.__heroSrc = function () {
-    let dataUrl = null, err = null;
-    try { dataUrl = screenCanvas.toDataURL(); } catch (e) { err = String(e); }
+    let grid = null, err = null;
+    try {
+      const cols = 6, rows = 5, g = [];
+      for (let r = 0; r < rows; r++) {
+        const row = [];
+        for (let c = 0; c < cols; c++) {
+          const x = Math.round((c + 0.5) / cols * SCW);
+          const y = Math.round((r + 0.5) / rows * SCH);
+          const p = sctx.getImageData(x, y, 1, 1).data;
+          row.push([p[0], p[1], p[2]]);
+        }
+        g.push(row);
+      }
+      grid = g;
+    } catch (e) { err = String(e); }
     return { mode: player.mode, hasArt: !!player.art,
       artNatural: player.art ? [player.art.naturalWidth, player.art.naturalHeight] : null,
-      size: [screenCanvas.width, screenCanvas.height], err, dataUrl };
+      artSrc: player.art ? player.art.src.slice(-24) : null,
+      size: [screenCanvas.width, screenCanvas.height], err, grid };
   };
 
   // ---- Pointer picking: map a screen-space click onto the CRT plane's UV,
