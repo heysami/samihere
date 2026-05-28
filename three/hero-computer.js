@@ -153,11 +153,10 @@ function initScene(canvas) {
 
   function scanlinesAndSheen() {
     const g = sctx, W = SCW, H = SCH;
-    g.globalAlpha = 0.06; g.fillStyle = '#000';
-    for (let y = 0; y < H; y += 3) g.fillRect(0, y, W, 1);
-    g.globalAlpha = 1;
+    // Just a soft corner sheen — no scanlines (they moiré badly on album-art
+    // photos once the texture is minified onto the small CRT screen).
     const sheen = g.createLinearGradient(0, 0, W * 0.7, H * 0.7);
-    sheen.addColorStop(0, 'rgba(255,255,255,0.16)');
+    sheen.addColorStop(0, 'rgba(255,255,255,0.12)');
     sheen.addColorStop(0.35, 'rgba(255,255,255,0)');
     g.fillStyle = sheen; g.fillRect(0, 0, W, H);
   }
@@ -229,22 +228,26 @@ function initScene(canvas) {
 
   function refresh() {
     if (player.mode === 'player') drawPlayer(); else drawDefault();
-    screenTex.needsUpdate = true;
+    // Recreate the texture so the GPU re-uploads reliably. A shared CanvasTexture
+    // wasn't re-uploading in this dual-renderer scene (main + outline contexts),
+    // leaving the screen frozen on its first frame.
+    const t = new THREE.CanvasTexture(screenCanvas);
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.anisotropy = 4;
+    if (screenTex) screenTex.dispose();
+    screenTex = t;
+    matScreen.map = t;
+    matScreen.needsUpdate = true;
   }
 
   drawDefault();
-  const screenTex = new THREE.CanvasTexture(screenCanvas);
+  let screenTex = new THREE.CanvasTexture(screenCanvas);
   screenTex.colorSpace = THREE.SRGBColorSpace;
   screenTex.anisotropy = 4;
 
-  const matScreen = new THREE.MeshStandardMaterial({
-    map: screenTex,
-    roughness: 0.5,
-    metalness: 0.0,
-    emissive: 0xbcbcbe,        // gentle neutral phosphor self-glow
-    emissiveMap: screenTex,
-    emissiveIntensity: 0.55,
-  });
+  // Unlit so the screen is self-illuminated (a real display), showing album art
+  // at full brightness/colour instead of being darkened by scene lighting.
+  const matScreen = new THREE.MeshBasicMaterial({ map: screenTex, toneMapped: false });
   const screen = new THREE.Mesh(new THREE.PlaneGeometry(1.66, 1.38), matScreen);
   screen.position.set(0, 0.32, 1.005);
   computer.add(screen);
