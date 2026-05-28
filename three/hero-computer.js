@@ -307,6 +307,32 @@ function initScene(canvas) {
     return { size: [W, H], glError: gl.getError(), grid };
   };
 
+  // TEMP DEBUG — reconstruct the main-renderer framebuffer as a PNG dataURL (flipped,
+  // composited over white) so the true render can be viewed. Remove after diagnosing.
+  window.__heroRenderImg = function () {
+    const gl = renderer.getContext();
+    renderer.render(scene, camera);
+    const W = renderer.domElement.width, H = renderer.domElement.height;
+    const buf = new Uint8Array(W * H * 4);
+    gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, buf);
+    const out = document.createElement('canvas'); out.width = W; out.height = H;
+    const o = out.getContext('2d');
+    const img = o.createImageData(W, H);
+    for (let y = 0; y < H; y++) {
+      const sy = H - 1 - y;
+      for (let x = 0; x < W; x++) {
+        const si = (sy * W + x) * 4, di = (y * W + x) * 4;
+        const a = buf[si + 3] / 255;
+        img.data[di]     = Math.round(buf[si]     * a + 255 * (1 - a));
+        img.data[di + 1] = Math.round(buf[si + 1] * a + 255 * (1 - a));
+        img.data[di + 2] = Math.round(buf[si + 2] * a + 255 * (1 - a));
+        img.data[di + 3] = 255;
+      }
+    }
+    o.putImageData(img, 0, 0);
+    return out.toDataURL('image/png');
+  };
+
   // ---- Pointer picking: map a screen-space click onto the CRT plane's UV,
   // then to a control icon. Works regardless of DOM stacking (listens on window). ----
   const raycaster = new THREE.Raycaster();
