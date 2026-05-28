@@ -3,12 +3,14 @@
 // Every secret lives here — never in the browser. Set these in
 // Vercel → Project → Settings → Environment Variables:
 //   OPENAI_API_KEY            your OpenAI key
-//   CONTACT_EMAIL             shown to a visitor ONLY when their IP is over budget
+//   CONTACT_EMAIL             where contact leads are emailed + shown when over budget
 //   UPSTASH_REDIS_REST_URL    Upstash Redis REST URL   (the per-IP token counter)
 //   UPSTASH_REDIS_REST_TOKEN  Upstash Redis REST token
+//   RESEND_API_KEY            Resend key — emails you when a visitor leaves contact
 // Optional:
 //   OPENAI_MODEL              default "gpt-4o-mini"
 //   DAILY_BUDGET_USD          default "1"
+//   RESEND_FROM               sender, default "Portfolio Chat <onboarding@resend.dev>"
 
 const MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 const DAILY_BUDGET_USD = parseFloat(process.env.DAILY_BUDGET_USD || '1');
@@ -44,9 +46,50 @@ function buildSystemPrompt() {
     .join('\n');
 }
 
+const CONTACT_EMAIL = process.env.CONTACT_EMAIL;
+const RESEND_FROM = process.env.RESEND_FROM || 'Portfolio Chat <onboarding@resend.dev>';
+
 const MAX_HISTORY = 20; // turns of context forwarded to the model
 const MAX_CHARS = 4000; // per-message cap
 const MAX_TOKENS_OUT = 500; // bounds the cost of any single reply
+const MAX_NOTIFY_PER_DAY = 5; // cap contact emails per IP/day so no one floods the inbox
+
+const EMAIL_RE = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/;
+const PHONE_RE = /\+?\d[\d\s().-]{6,}\d/;
+
+function findContact(text) {
+  const email = (text.match(EMAIL_RE) || [])[0] || null;
+  const phone = (text.match(PHONE_RE) || [])[0] || null;
+  return email || phone ? { email, phone } : null;
+}
+
+async function notifyContact(contact, messages, ip) {
+  if (!process.env.RESEND_API_KEY || !CONTACT_EMAIL) return;
+  const transcript = messages
+    .map((m) => (m.role === 'user' ? 'Visitor: ' : 'You: ') + m.content)
+    .join('\n\n');
+  const lead = [contact.email && 'Email: ' + contact.email, contact.phone && 'Phone: ' + contact.phone]
+    .filter(Boolean)
+    .join('\n');
+  const text =
+    'Someone left their contact in your portfolio chat:\n\n' +
+    lead +
+    '\n\n— Conversation —\n' +
+    transcript +
+    '\n\n(from IP ' +
+    ip +
+    ')';
+  await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      from: RESEND_FROM,
+      to: CONTACT_EMAIL,
+      subject: 'New contact from your portfolio chat',
+      text,
+    }),
+  });
+}
 
 async function redis(command) {
   const r = await fetch(process.env.UPSTASH_REDIS_REST_URL, {
@@ -100,7 +143,7 @@ module.exports = async (req, res) => {
         reply:
           "Looks like this network has used up today's free chat with me. " +
           'If you want to keep talking, email me at ' +
-          process.env.CONTACT_EMAIL +
+          CONTACT_EMAIL +
           " and I'll reply personally.",
       });
       return;
@@ -142,6 +185,24 @@ module.exports = async (req, res) => {
     await redis(['EXPIRE', key, 172800]); // 2-day TTL so yesterday's keys clean themselves up
   } catch (e) {
     // Metering failed; don't punish the visitor for our bookkeeping.
+  }
+
+  // If the visitor's latest message contains contact details, email them to me.
+  // Only the newest message is scanned (so a contact isn't re-sent every turn),
+  // and notifications are capped per IP/day so the inbox can't be flooded.
+  try {
+    const lastUser = messages.filter((m) => m.role === 'user').pop();
+    const contact = lastUser ? findContact(lastUser.content) : null;
+    if (contact) {
+      const notifyKey = `chat:notify:${ip}:${day}`;
+      const count = parseInt(await redis(['INCR', notifyKey]), 10);
+      if (count === 1) await redis(['EXPIRE', notifyKey, 172800]);
+      if (count <= MAX_NOTIFY_PER_DAY) {
+        await notifyContact(contact, [...messages, { role: 'assistant', content: reply }], ip);
+      }
+    }
+  } catch (e) {
+    // Email/bookkeeping failure must not break the chat reply.
   }
 
   res.status(200).json({ reply });
