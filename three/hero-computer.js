@@ -257,16 +257,17 @@ function initScene(canvas) {
 
   // Unlit so the screen is self-illuminated (a real display), showing album art
   // at full brightness/colour instead of being darkened by scene lighting.
-  // polygonOffset biases the screen toward the camera in depth so it never
-  // z-fights with the dark glass just behind it (z=0.97) — that fight was the
-  // "glitch": the glass punching through the album art in a hatched pattern as
-  // the computer tilts.
+  // depthTest:false + a high renderOrder take the screen OUT of the depth buffer
+  // entirely so it always draws cleanly on top of the dark glass just behind it.
+  // That z-fight (made unfixable by the camera's near:0.1/far:100 depth precision)
+  // was the "glitch": MSAA mixing the screen with the dark glass into a dark,
+  // desaturated, dithered mess.
   const matScreen = new THREE.MeshBasicMaterial({
-    map: screenTex, toneMapped: false,
-    polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4,
+    map: screenTex, toneMapped: false, depthTest: false,
   });
   const screen = new THREE.Mesh(new THREE.PlaneGeometry(1.66, 1.38), matScreen);
-  screen.position.set(0, 0.32, 1.03);
+  screen.position.set(0, 0.32, 1.005);
+  screen.renderOrder = 10;
   computer.add(screen);
 
   // TEMP DEBUG — read-only accessor to inspect the screen texture source. Remove after diagnosing.
