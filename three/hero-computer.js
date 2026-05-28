@@ -402,6 +402,21 @@ function initScene(canvas) {
     return 'shown render ' + W + 'x' + H + ' + source ' + SCW + 'x' + SCH;
   };
 
+  // TEMP DEBUG — paint a simple solid-quadrant test pattern, re-upload, render & show.
+  // If the screen shows 4 clean colour blocks, the pipeline is fine and the glitch is
+  // purely minification of the detailed album art.
+  window.__heroProbe = function () {
+    const g = sctx;
+    g.fillStyle = '#d83030'; g.fillRect(0, 0, SCW / 2, SCH / 2);
+    g.fillStyle = '#30b030'; g.fillRect(SCW / 2, 0, SCW / 2, SCH / 2);
+    g.fillStyle = '#3030d8'; g.fillRect(0, SCH / 2, SCW / 2, SCH / 2);
+    g.fillStyle = '#e8e8e8'; g.fillRect(SCW / 2, SCH / 2, SCW / 2, SCH / 2);
+    const t = makeScreenTexture();
+    if (screenTex) screenTex.dispose();
+    screenTex = t; matScreen.map = t; matScreen.needsUpdate = true;
+    return window.__heroShow();
+  };
+
   // TEMP DEBUG — reconstruct the main-renderer framebuffer as a PNG dataURL (flipped,
   // composited over white) so the true render can be viewed. Remove after diagnosing.
   window.__heroRenderImg = function () {
