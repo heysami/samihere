@@ -368,6 +368,33 @@ function initScene(canvas) {
     return { glTexExists: true, texSize: [W0, H0], levels };
   };
 
+  // TEMP DEBUG — draw the main-renderer framebuffer into a visible on-page canvas
+  // (top-left, magenta border) so it can be screenshotted. Keeps pixels in-page.
+  window.__heroShow = function () {
+    const gl = renderer.getContext();
+    renderer.render(scene, camera);
+    const W = renderer.domElement.width, H = renderer.domElement.height;
+    const buf = new Uint8Array(W * H * 4);
+    gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, buf);
+    let c = document.getElementById('__heroShowC');
+    if (!c) { c = document.createElement('canvas'); c.id = '__heroShowC';
+      c.style.cssText = 'position:fixed;top:8px;left:8px;z-index:99999;border:3px solid magenta;background:#fff;width:' + (W * 1.4) + 'px;height:' + (H * 1.4) + 'px;image-rendering:pixelated';
+      document.body.appendChild(c); }
+    c.width = W; c.height = H;
+    const o = c.getContext('2d');
+    const img = o.createImageData(W, H);
+    for (let y = 0; y < H; y++) { const sy = H - 1 - y;
+      for (let x = 0; x < W; x++) { const si = (sy * W + x) * 4, di = (y * W + x) * 4;
+        const a = buf[si + 3] / 255;
+        img.data[di] = Math.round(buf[si] * a + 255 * (1 - a));
+        img.data[di + 1] = Math.round(buf[si + 1] * a + 255 * (1 - a));
+        img.data[di + 2] = Math.round(buf[si + 2] * a + 255 * (1 - a));
+        img.data[di + 3] = 255;
+      } }
+    o.putImageData(img, 0, 0);
+    return 'shown ' + W + 'x' + H;
+  };
+
   // TEMP DEBUG — reconstruct the main-renderer framebuffer as a PNG dataURL (flipped,
   // composited over white) so the true render can be viewed. Remove after diagnosing.
   window.__heroRenderImg = function () {
