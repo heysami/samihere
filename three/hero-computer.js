@@ -260,6 +260,15 @@ function initScene(canvas) {
   screen.position.set(0, 0.32, 1.005);
   computer.add(screen);
 
+  // TEMP DEBUG — read-only accessor to inspect the screen texture source. Remove after diagnosing.
+  window.__heroSrc = function () {
+    let dataUrl = null, err = null;
+    try { dataUrl = screenCanvas.toDataURL(); } catch (e) { err = String(e); }
+    return { mode: player.mode, hasArt: !!player.art,
+      artNatural: player.art ? [player.art.naturalWidth, player.art.naturalHeight] : null,
+      size: [screenCanvas.width, screenCanvas.height], err, dataUrl };
+  };
+
   // ---- Pointer picking: map a screen-space click onto the CRT plane's UV,
   // then to a control icon. Works regardless of DOM stacking (listens on window). ----
   const raycaster = new THREE.Raycaster();
