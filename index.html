@@ -269,7 +269,9 @@
       .bench-shot { position: relative; aspect-ratio: 4/3; display: flex; align-items: center; justify-content: center; padding: 12px;
         background: repeating-linear-gradient(135deg, #fafafa 0 12px, #f4f4f5 12px 24px); }
       .bench-shot-label { font-size: 12px; font-weight: 600; color: #71717a; text-align: center; line-height: 1.3; }
-      .bench-best { position: absolute; top: 8px; right: 8px; font-size: 9px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; background: #18181b; color: #fff; padding: 3px 7px; border-radius: 9999px; }
+      .bench-best { position: absolute; top: 8px; right: 8px; z-index: 2; font-size: 9px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; background: #18181b; color: #fff; padding: 3px 7px; border-radius: 9999px; }
+      .bench-shot-img { position: relative; background: #f4f4f5; }
+      .bench-shot-img img { width: 100%; height: auto; display: block; }
 
       /* ── Center card: hover-revealed GIF card + sonic-boom click effect ── */
       .center-gif { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; background: #fff; opacity: 0; pointer-events: none; transition: opacity .3s ease; z-index: 5; }
@@ -848,7 +850,7 @@
           limn: {
             kicker: 'Vibe-coded app', name: 'Limn', short: 'A vibe-coding studio where ideas become real interfaces.',
             tagline: 'A vibe-coding studio where prompts, design systems and prototypes live together on one canvas.',
-            placeholder: true, shots: [],
+            placeholder: false, shots: ['img/apps/limn.png'],
             points: [
               { h: 'Prototype-first', b: 'Turn a one-line idea into a navigable, clickable interface in minutes.' },
               { h: 'One canvas', b: 'Prompts, design systems and generated assets sit together as pieces you can rerun and rearrange.' },
@@ -875,12 +877,12 @@
             ],
             benchmark: {
               kind: 'triple',
-              caption: 'Same brief, three ways — speed, cost and the screen each produced.',
-              example: 'Brief — “a calm daily habit tracker, mobile”',
+              caption: 'Same brief, three ways — file size, time and tokens, plus the screen each produced. All on Opus 4.7 1M (Extra High).',
+              example: 'Brief — “a family chores & allowance app, mobile”',
               columns: [
-                { label: 'With /prototype', speed: '42 s', dollar: '$0.05', best: true },
-                { label: 'Plain prompt', speed: '55 s', dollar: '$0.07' },
-                { label: 'Claude design', speed: '2 m 05 s', dollar: '$0.14' },
+                { label: 'With /prototype', img: 'img/bench/prototype-with.png', file: '57 KB', speed: '16 m', speedSub: '8 m build · 8 m test', tokens: '19.6k', best: true },
+                { label: 'Plain prompt', img: 'img/bench/prototype-plain.png', file: '71 KB', speed: '12 m', speedSub: '7 m build · 5 m test', tokens: '21.5k' },
+                { label: 'Claude design', img: 'img/bench/prototype-claude.png', file: '132 KB', speed: '13 m', speedSub: 'design only', tokens: '—' },
               ],
             },
           },
@@ -894,16 +896,16 @@
             ],
             benchmark: {
               kind: 'pair',
-              caption: 'Three briefs, each generated with and without the interview.',
+              caption: 'Three briefs, each built with and without the interview. Same model both ways.',
               examples: [
-                { title: 'Onboarding — a budgeting app', a: 'With /wow-me', b: 'Without' },
-                { title: 'Empty state — a notes app', a: 'With /wow-me', b: 'Without' },
-                { title: 'Pricing page — a SaaS tool', a: 'With /wow-me', b: 'Without' },
+                { title: 'A research reading &amp; annotation tool', a: 'With /wow-me', b: 'Without', imgA: 'img/bench/wowme-1-with.png', imgB: 'img/bench/wowme-1-without.png' },
+                { title: 'A late-night app for new parents', a: 'With /wow-me', b: 'Without', imgA: 'img/bench/wowme-2-with.png', imgB: 'img/bench/wowme-2-without.png' },
+                { title: 'An indie record label', a: 'With /wow-me', b: 'Without', imgA: 'img/bench/wowme-3-with.png', imgB: 'img/bench/wowme-3-without.png' },
               ],
             },
           },
           {
-            cmd: '/vibe-check', name: 'Name the vibe', file: 'skills/vibe-check.md',
+            cmd: '/vibe-check', name: 'Name the vibe', file: 'skills/vibe-check.md', wip: true,
             desc: 'An interview that keeps going until content, visual and motion combine into one impeccably supreme vibe — better than merely useful or pretty.',
             why: [
               'Names the aesthetic, giving the project a shared vocabulary.',
@@ -1071,11 +1073,11 @@
           }
           return mdCache[s.file];
         }
-        // A labelled placeholder "result" tile (swap for real benchmark screenshots later).
-        function benchShot(label, best) {
-          return '<div class="bench-shot rounded-xl border border-zinc-100 overflow-hidden">' +
+        // A full-bleed benchmark screenshot cell (natural aspect, never cropped).
+        function benchShot(src, label, best) {
+          return '<div class="bench-shot-img">' +
             (best ? '<span class="bench-best">Best</span>' : '') +
-            '<span class="bench-shot-label">' + label + '<br><span class="text-zinc-300">result preview</span></span></div>';
+            '<img src="' + src + '" alt="' + label + ' result" loading="lazy" /></div>';
         }
         function benchmarkHTML(b) {
           if (b.kind === 'triple') {
@@ -1084,27 +1086,38 @@
               '<div class="grid grid-cols-3 gap-3">' +
               c.map(col =>
                 '<div class="rounded-2xl overflow-hidden bg-white ' + (col.best ? 'ring-2 ring-zinc-900' : 'border border-zinc-100') + '">' +
-                  benchShot(col.label, col.best) +
-                  '<div class="flex items-stretch divide-x divide-zinc-100 border-t border-zinc-100">' +
-                    '<div class="flex-1 px-3 py-2"><div class="text-[10px] uppercase tracking-wider text-zinc-400">Speed</div><div class="text-sm font-semibold text-zinc-900">' + col.speed + '</div></div>' +
-                    '<div class="flex-1 px-3 py-2"><div class="text-[10px] uppercase tracking-wider text-zinc-400">Cost</div><div class="text-sm font-semibold text-zinc-900">' + col.dollar + '</div></div>' +
+                  '<div class="bench-shot-img">' +
+                    (col.best ? '<span class="bench-best">Best</span>' : '') +
+                    '<img src="' + col.img + '" alt="' + col.label + ' result" loading="lazy" />' +
                   '</div>' +
-                  '<div class="px-3 py-2 text-xs font-semibold ' + (col.best ? 'text-zinc-900' : 'text-zinc-400') + '">' + col.label + '</div>' +
+                  '<div class="flex items-stretch divide-x divide-zinc-100 border-t border-zinc-100">' +
+                    '<div class="flex-1 px-2 py-2"><div class="text-[10px] uppercase tracking-wider text-zinc-400">File</div><div class="text-sm font-semibold text-zinc-900">' + col.file + '</div></div>' +
+                    '<div class="flex-1 px-2 py-2"><div class="text-[10px] uppercase tracking-wider text-zinc-400">Time</div><div class="text-sm font-semibold text-zinc-900">' + col.speed + '</div></div>' +
+                    '<div class="flex-1 px-2 py-2"><div class="text-[10px] uppercase tracking-wider text-zinc-400">Tokens</div><div class="text-sm font-semibold text-zinc-900">' + col.tokens + '</div></div>' +
+                  '</div>' +
+                  '<div class="px-3 pb-2 pt-1 text-[10px] text-zinc-400">' + col.speedSub + '</div>' +
+                  '<div class="px-3 pb-3 text-xs font-semibold ' + (col.best ? 'text-zinc-900' : 'text-zinc-400') + '">' + col.label + '</div>' +
                 '</div>'
               ).join('') +
               '</div>' +
-              '<p class="mt-3 text-xs text-zinc-300">Figures illustrative.</p>';
+              '<p class="mt-3 text-xs text-zinc-300">Figures from one run each; not averaged.</p>';
           }
           // 'pair' — N examples, two image-only columns each
           return b.examples.map(ex =>
             '<div class="mb-6">' +
               '<p class="text-sm font-semibold text-zinc-700 mb-2">' + ex.title + '</p>' +
               '<div class="grid grid-cols-2 gap-3">' +
-                '<div class="rounded-2xl overflow-hidden ring-2 ring-zinc-900">' + benchShot(ex.a, true) + '<div class="px-3 py-2 text-xs font-semibold text-zinc-900">' + ex.a + '</div></div>' +
-                '<div class="rounded-2xl overflow-hidden border border-zinc-100">' + benchShot(ex.b, false) + '<div class="px-3 py-2 text-xs font-semibold text-zinc-400">' + ex.b + '</div></div>' +
+                '<div class="rounded-2xl overflow-hidden ring-2 ring-zinc-900">' + benchShot(ex.imgA, ex.a, true) + '<div class="px-3 py-2 text-xs font-semibold text-zinc-900">' + ex.a + '</div></div>' +
+                '<div class="rounded-2xl overflow-hidden border border-zinc-100">' + benchShot(ex.imgB, ex.b, false) + '<div class="px-3 py-2 text-xs font-semibold text-zinc-400">' + ex.b + '</div></div>' +
               '</div>' +
             '</div>'
           ).join('');
+        }
+        function wipBox() {
+          return '<div class="mt-3 rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 px-6 py-10 text-center max-w-2xl">' +
+            '<span class="inline-block text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-400 mb-2">Work in progress</span>' +
+            '<p class="text-sm text-zinc-500">This is still being put together — check back soon.</p>' +
+          '</div>';
         }
         function overviewHTML(s) {
           return '<div class="p-8 md:p-10">' +
@@ -1113,9 +1126,11 @@
             '<div class="mt-3 space-y-3 max-w-2xl">' +
               s.why.map(w => '<div class="flex gap-3"><div class="mt-2 w-1.5 h-1.5 rounded-full bg-zinc-900 flex-shrink-0"></div><p class="text-zinc-500 leading-relaxed">' + w + '</p></div>').join('') +
             '</div>' +
-            '<h3 class="mt-9 font-display text-sm font-bold uppercase tracking-wider text-zinc-900">Benchmark</h3>' +
-            '<p class="mt-1 mb-5 text-sm text-zinc-400 max-w-2xl">' + s.benchmark.caption + '</p>' +
-            benchmarkHTML(s.benchmark) +
+            (s.wip
+              ? '<h3 class="mt-9 font-display text-sm font-bold uppercase tracking-wider text-zinc-900">Benchmark</h3>' + wipBox()
+              : '<h3 class="mt-9 font-display text-sm font-bold uppercase tracking-wider text-zinc-900">Benchmark</h3>' +
+                '<p class="mt-1 mb-5 text-sm text-zinc-400 max-w-2xl">' + s.benchmark.caption + '</p>' +
+                benchmarkHTML(s.benchmark)) +
           '</div>';
         }
         function fillSkill(bodyEl, i) {
@@ -1135,6 +1150,7 @@
           const tabbody = bodyEl.querySelector('#skill-tabbody');
           async function renderTab(tab) {
             if (tab === 'prompt') {
+              if (s.wip) { tabbody.innerHTML = '<div class="p-8 md:p-10">' + wipBox() + '</div>'; tabbody.scrollTop = 0; return; }
               tabbody.innerHTML = '<div class="p-8 md:p-10 text-sm text-zinc-400">Loading&hellip;</div>';
               const md = await loadSkillMd(s);
               tabbody.innerHTML =
