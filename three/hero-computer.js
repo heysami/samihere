@@ -285,6 +285,28 @@ function initScene(canvas) {
       size: [screenCanvas.width, screenCanvas.height], err, grid };
   };
 
+  // TEMP DEBUG — render via the MAIN renderer only (no outline pass) and read back
+  // the framebuffer to get ground-truth rendered pixels. Remove after diagnosing.
+  window.__heroRender = function () {
+    const gl = renderer.getContext();
+    renderer.render(scene, camera);
+    const W = renderer.domElement.width, H = renderer.domElement.height;
+    const buf = new Uint8Array(W * H * 4);
+    gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, buf);
+    const cols = 8, rows = 8, grid = [];
+    for (let r = 0; r < rows; r++) {
+      const row = [];
+      for (let c = 0; c < cols; c++) {
+        const x = Math.floor((c + 0.5) / cols * W);
+        const y = Math.floor((1 - (r + 0.5) / rows) * H); // flip: readPixels is bottom-left
+        const i = (y * W + x) * 4;
+        row.push([buf[i], buf[i + 1], buf[i + 2], buf[i + 3]]);
+      }
+      grid.push(row);
+    }
+    return { size: [W, H], glError: gl.getError(), grid };
+  };
+
   // ---- Pointer picking: map a screen-space click onto the CRT plane's UV,
   // then to a control icon. Works regardless of DOM stacking (listens on window). ----
   const raycaster = new THREE.Raycaster();
