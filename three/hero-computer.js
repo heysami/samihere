@@ -392,7 +392,14 @@ function initScene(canvas) {
         img.data[di + 3] = 255;
       } }
     o.putImageData(img, 0, 0);
-    return 'shown ' + W + 'x' + H;
+    // also show the SOURCE canvas (what drawPlayer produced) for comparison
+    let s = document.getElementById('__heroSrcC');
+    if (!s) { s = document.createElement('canvas'); s.id = '__heroSrcC';
+      s.style.cssText = 'position:fixed;top:8px;left:' + (W * 1.4 + 24) + 'px;z-index:99999;border:3px solid lime;background:#fff;width:' + SCW + 'px;height:' + SCH + 'px;image-rendering:pixelated';
+      document.body.appendChild(s); }
+    s.width = SCW; s.height = SCH;
+    s.getContext('2d').drawImage(screenCanvas, 0, 0);
+    return 'shown render ' + W + 'x' + H + ' + source ' + SCW + 'x' + SCH;
   };
 
   // TEMP DEBUG — reconstruct the main-renderer framebuffer as a PNG dataURL (flipped,
