@@ -906,13 +906,14 @@
               columns: [
                 { label: 'With /prototype', img: 'img/bench/prototype-with.png', file: '57 KB', speed: '16 m', speedSub: '8 m build · 8 m test', tokens: '19.6k', best: true },
                 { label: 'Plain prompt', img: 'img/bench/prototype-plain.png', file: '71 KB', speed: '12 m', speedSub: '7 m build · 5 m test', tokens: '21.5k' },
-                { label: 'Claude design', img: 'img/bench/prototype-claude.png', file: '132 KB', speed: '13 m', speedSub: 'design only', tokens: '—' },
+                { label: 'Claude design', img: 'img/bench/prototype-claude.png', file: '132 KB', speed: '13 m', speedSub: 'design only', tokens: '-' },
               ],
             },
           },
           {
             cmd: '/wow-me', name: 'Design brief that wows', file: 'skills/wow-me.md',
             objective: 'Delivers a design brief with a concrete wow moment for every persona.',
+            inspiration: 'Inspired by Andrej Karpathy’s “grill me”.',
             desc: 'An interview that won’t let go until every persona has a felt-state paired with a revelation × technology that genuinely wows them.',
             why: [
               'Turns “make it delightful” into concrete, per-persona moments of wow.',
@@ -1149,11 +1150,17 @@
           '</div>';
         }
         function overviewHTML(s) {
+          const benchHeader =
+            '<div class="mt-9 flex items-center gap-2.5 flex-wrap">' +
+              '<h3 class="font-display text-sm font-bold uppercase tracking-wider text-zinc-900">Benchmark</h3>' +
+              '<span class="inline-flex items-center px-2.5 py-1 rounded-full bg-zinc-900 text-white text-[10px] font-bold uppercase tracking-wider">1 prompt · no iteration</span>' +
+            '</div>';
           return '<div class="p-8 md:p-10">' +
             '<p class="text-xl text-zinc-700 leading-relaxed max-w-2xl">' + (s.objective || s.desc) + '</p>' +
+            (s.inspiration ? '<p class="mt-2 text-sm italic text-zinc-400 max-w-2xl">' + s.inspiration + '</p>' : '') +
             (s.wip
               ? '<h3 class="mt-9 font-display text-sm font-bold uppercase tracking-wider text-zinc-900">Benchmark</h3>' + wipBox()
-              : '<h3 class="mt-9 font-display text-sm font-bold uppercase tracking-wider text-zinc-900">Benchmark</h3>' +
+              : benchHeader +
                 '<p class="mt-1 mb-5 text-sm text-zinc-400 max-w-2xl">' + s.benchmark.caption + '</p>' +
                 benchmarkHTML(s.benchmark)) +
           '</div>';
