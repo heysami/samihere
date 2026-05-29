@@ -1136,7 +1136,7 @@
         function wipBox() {
           return '<div class="mt-3 rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 px-6 py-10 text-center max-w-2xl">' +
             '<span class="inline-block text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-400 mb-2">Work in progress</span>' +
-            '<p class="text-sm text-zinc-500">This is still being put together — check back soon.</p>' +
+            '<p class="text-sm text-zinc-500">This is still being put together. Check back soon.</p>' +
           '</div>';
         }
         function overviewHTML(s) {
@@ -1154,7 +1154,7 @@
         function promptGateHTML(s) {
           return '<div class="p-8 md:p-10 max-w-xl">' +
             '<h3 class="font-display text-2xl font-black tracking-[-0.015em] text-zinc-900">Get the prompt</h3>' +
-            '<p class="mt-2 text-zinc-500 leading-relaxed">Drop your email and I&rsquo;ll send you the full ' + s.cmd + ' prompt to use yourself.</p>' +
+            '<p class="mt-2 text-zinc-500 leading-relaxed">Drop your email and I&rsquo;ll send you a link to the full ' + s.cmd + ' prompt. Once you open it, you have 5 minutes before it expires.</p>' +
             '<form id="skill-gate" class="mt-5 flex flex-col sm:flex-row gap-3" novalidate>' +
               '<input id="skill-email" type="email" required autocomplete="email" placeholder="you@email.com" ' +
                 'class="flex-1 px-4 py-3 rounded-full border border-zinc-300 text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:border-zinc-900 transition-colors" />' +
@@ -1174,7 +1174,7 @@
           form.addEventListener('submit', async (e) => {
             e.preventDefault();
             const addr = (email.value || '').trim();
-            if (!EMAIL_RE.test(addr)) { status.className = 'mt-3 text-sm text-red-500 min-h-[1.25rem]'; status.textContent = 'Hmm, that email looks off — mind checking it?'; return; }
+            if (!EMAIL_RE.test(addr)) { status.className = 'mt-3 text-sm text-red-500 min-h-[1.25rem]'; status.textContent = 'Hmm, that email looks off. Mind checking it?'; return; }
             const label = btn.textContent;
             btn.disabled = true; btn.textContent = 'Sending…';
             status.className = 'mt-3 text-sm text-zinc-400 min-h-[1.25rem]'; status.textContent = '';
@@ -1187,11 +1187,11 @@
               const data = await r.json().catch(() => ({}));
               if (!r.ok) throw new Error((data && data.error) || r.status);
               status.className = 'mt-3 text-sm text-zinc-900 font-medium min-h-[1.25rem]';
-              status.textContent = 'Sent! Check ' + addr + ' for the ' + s.cmd + ' prompt. ✨';
+              status.textContent = 'Sent! Check ' + addr + ' for your link to the ' + s.cmd + ' prompt. ✨';
               form.reset();
             } catch (err) {
               status.className = 'mt-3 text-sm text-red-500 min-h-[1.25rem]';
-              status.textContent = 'Couldn’t send it just now — try again in a moment.';
+              status.textContent = 'Couldn’t send it just now. Try again in a moment.';
             } finally {
               btn.disabled = false; btn.textContent = label;
             }

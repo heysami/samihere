@@ -1,22 +1,31 @@
-// Serverless endpoint: email a skill's full prompt to a visitor (Vercel, Node runtime).
+// Serverless endpoint: email a one-time link to a skill's prompt (Vercel, Node runtime).
 //
-// Reuses the same env vars as api/chat.js — nothing new to configure if chat works:
-//   RESEND_API_KEY            Resend key (required to actually send)
+// Flow: visitor submits their email -> we mint a random token, stash it in Redis,
+// and email a link to /skill.html?token=... . The prompt itself is NOT in the email.
+// When the link is first opened (see api/skill-open.js) a 5-minute countdown starts;
+// after that the link is dead and they have to request it again.
+//
+// Env vars (same ones api/chat.js already uses):
+//   RESEND_API_KEY            Resend key (required to send)
 //   RESEND_FROM               sender, default "Sami <onboarding@resend.dev>"
-//   CONTACT_EMAIL             optional — also pinged when someone grabs a skill (lead capture)
-//   UPSTASH_REDIS_REST_URL    optional — per-IP daily cap so the form can't be abused
-//   UPSTASH_REDIS_REST_TOKEN  optional
+//   UPSTASH_REDIS_REST_URL    required — holds the link tokens
+//   UPSTASH_REDIS_REST_TOKEN  required
+//   CONTACT_EMAIL             optional — pinged when someone grabs a skill (lead capture)
 // Optional:
 //   SKILL_MAX_PER_DAY         default "10" requests per IP per day
+//   SKILL_LINK_TTL_SEC        default "604800" (7 days) — how long an unopened link lives
+
+const crypto = require('crypto');
 
 const RESEND_FROM = process.env.RESEND_FROM || 'Sami <onboarding@resend.dev>';
 const CONTACT_EMAIL = process.env.CONTACT_EMAIL;
 const MAX_PER_DAY = parseInt(process.env.SKILL_MAX_PER_DAY || '10', 10);
+const LINK_TTL_SEC = parseInt(process.env.SKILL_LINK_TTL_SEC || '604800', 10);
 
 const EMAIL_RE = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
 
 // Maps the command the browser sends → the static .md file + a human name.
-// Keep this in sync with the SKILLS list in index.html.
+// Keep this in sync with the SKILLS list in index.html and api/skill-open.js.
 const SKILL_FILES = {
   '/prototype':  { file: 'prototype.md',  name: 'Draw the interface' },
   '/wow-me':     { file: 'wow-me.md',      name: 'Design brief that wows' },
@@ -67,58 +76,61 @@ module.exports = async (req, res) => {
     return;
   }
   if (!process.env.RESEND_API_KEY) {
-    res.status(503).json({ error: 'Email isn’t set up yet — try again later.' });
+    res.status(503).json({ error: 'Email isn’t set up yet. Try again later.' });
+    return;
+  }
+  if (!process.env.UPSTASH_REDIS_REST_URL) {
+    res.status(503).json({ error: 'Link store isn’t set up yet. Try again later.' });
     return;
   }
 
   const fwd = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
   const ip = fwd || req.headers['x-real-ip'] || 'unknown';
 
-  // Per-IP daily cap (fail open if Redis is unavailable — don't block real visitors).
+  // Per-IP daily cap (fail open if Redis read fails — don't block real visitors).
   try {
-    if (process.env.UPSTASH_REDIS_REST_URL) {
-      const day = new Date().toISOString().slice(0, 10);
-      const key = `skill:req:${ip}:${day}`;
-      const count = parseInt(await redis(['INCR', key]), 10);
-      if (count === 1) await redis(['EXPIRE', key, 172800]);
-      if (count > MAX_PER_DAY) {
-        res.status(429).json({ error: 'You’ve requested a lot today — try again tomorrow.' });
-        return;
-      }
+    const day = new Date().toISOString().slice(0, 10);
+    const capKey = `skill:req:${ip}:${day}`;
+    const count = parseInt(await redis(['INCR', capKey]), 10);
+    if (count === 1) await redis(['EXPIRE', capKey, 172800]);
+    if (count > MAX_PER_DAY) {
+      res.status(429).json({ error: 'You’ve requested a lot today. Try again tomorrow.' });
+      return;
     }
   } catch (e) {
     // ignore — fail open
   }
 
-  // Read the prompt text from the site's own static file.
-  const proto = String(req.headers['x-forwarded-proto'] || 'https').split(',')[0];
-  const host = req.headers.host;
-  let md = '';
+  // Mint a single-use token and store what it unlocks. openedAt:0 = not opened yet;
+  // the 5-minute countdown only begins on first open (handled in api/skill-open.js).
+  const token = crypto.randomBytes(24).toString('hex');
   try {
-    const r = await fetch(`${proto}://${host}/skills/${meta.file}`);
-    if (!r.ok) throw new Error('fetch ' + r.status);
-    md = await r.text();
+    const record = JSON.stringify({ skill, file: meta.file, name: meta.name, email, openedAt: 0 });
+    await redis(['SET', `skill:tok:${token}`, record, 'EX', String(LINK_TTL_SEC)]);
   } catch (e) {
-    res.status(502).json({ error: 'Couldn’t load the prompt — try again in a moment.' });
+    res.status(502).json({ error: 'Couldn’t create your link. Try again in a moment.' });
     return;
   }
 
-  // Email the full prompt to the visitor.
+  const proto = String(req.headers['x-forwarded-proto'] || 'https').split(',')[0];
+  const host = req.headers.host;
+  const link = `${proto}://${host}/skill.html?token=${token}`;
+
+  // Email the link (not the prompt itself).
   try {
     await sendEmail({
       from: RESEND_FROM,
       to: email,
-      subject: `Your ${skill} prompt`,
+      subject: `Your link to the ${skill} prompt`,
       text:
-        `Here’s the full prompt for ${skill} (${meta.name}).\n\n` +
-        `Drop it into Claude Code as a skill, or adapt it however you like.\n\n` +
-        `----------------------------------------\n\n` +
-        `${md}\n\n` +
-        `----------------------------------------\n\n` +
-        `— Sami`,
+        `Here’s your link to the ${skill} (${meta.name}) prompt:\n\n` +
+        `${link}\n\n` +
+        `Heads up: the moment you open it, a 5-minute timer starts. Once it runs out ` +
+        `the link expires and you’ll need to request it again, so have a copy ready when you open it.\n\n` +
+        `Cheers,\nSami`,
     });
   } catch (e) {
-    res.status(502).json({ error: 'Couldn’t send the email — try again in a moment.' });
+    res.status(502).json({ error: 'Couldn’t send the email. Try again in a moment.' });
     return;
   }
 

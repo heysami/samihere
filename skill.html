@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Your skill prompt · Sami</title>
+    <meta name="robots" content="noindex, nofollow" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Onest:wght@100..900&display=swap" />
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+    <script>
+      tailwind.config = {
+        theme: { extend: { fontFamily: {
+          sans: ['Onest', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+          display: ['Bricolage Grotesque', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        } } },
+      };
+    </script>
+
+    <style>
+      html, body { margin: 0; font-family: 'Onest', ui-sans-serif, system-ui, sans-serif; background: #fafafa; color: #18181b; -webkit-font-smoothing: antialiased; letter-spacing: -0.005em; }
+      /* Markdown body — copied from the main site so the prompt reads identically. */
+      .md-body { color: #3f3f46; line-height: 1.62; font-size: 15px; }
+      .md-body > :first-child { margin-top: 0; }
+      .md-body h1 { font-family: 'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif; font-weight: 800; font-size: 1.9rem; line-height: 1.12; letter-spacing: -0.015em; color: #18181b; margin: 0 0 .55em; }
+      .md-body h2 { font-family: 'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif; font-weight: 700; font-size: 1.3rem; line-height: 1.25; color: #18181b; margin: 1.7em 0 .5em; padding-top: 1.2em; border-top: 1px solid #f4f4f5; }
+      .md-body h3 { font-family: 'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif; font-weight: 700; font-size: 1.05rem; color: #18181b; margin: 1.4em 0 .4em; }
+      .md-body h4 { font-weight: 700; font-size: .95rem; color: #18181b; margin: 1.2em 0 .35em; }
+      .md-body p { margin: .7em 0; }
+      .md-body ul, .md-body ol { margin: .6em 0; padding-left: 1.35em; }
+      .md-body ul { list-style: disc; } .md-body ol { list-style: decimal; }
+      .md-body li { margin: .32em 0; }
+      .md-body li::marker { color: #a1a1aa; }
+      .md-body a { color: #18181b; text-decoration: underline; text-underline-offset: 2px; }
+      .md-body strong { color: #18181b; font-weight: 700; }
+      .md-body em { font-style: italic; }
+      .md-body code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .85em; background: #f4f4f5; padding: .12em .42em; border-radius: 5px; color: #18181b; }
+      .md-body pre { background: #18181b; color: #fafafa; padding: 15px 18px; border-radius: 14px; overflow-x: auto; margin: 1em 0; font-size: 12.5px; line-height: 1.5; }
+      .md-body pre code { background: none; padding: 0; color: inherit; font-size: inherit; }
+      .md-body blockquote { border-left: 3px solid #18181b; margin: 1.1em 0; padding: .1em 0 .1em 1em; color: #52525b; font-style: italic; }
+      .md-body hr { border: none; border-top: 1px solid #e4e4e7; margin: 1.7em 0; }
+      .md-body table { width: 100%; border-collapse: collapse; margin: 1em 0; font-size: 12.5px; display: block; overflow-x: auto; }
+      .md-body th, .md-body td { border: 1px solid #e4e4e7; padding: 7px 10px; text-align: left; vertical-align: top; }
+      .md-body th { background: #fafafa; font-weight: 600; color: #18181b; }
+      .md-body h2:first-child, .md-body h1:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+
+      /* Sticky countdown bar pulses red in the final minute. */
+      @keyframes pulse-soft { 0%,100% { opacity: 1; } 50% { opacity: .55; } }
+      .is-urgent { animation: pulse-soft 1s ease-in-out infinite; }
+    </style>
+  </head>
+
+  <body class="min-h-screen">
+    <main id="app" class="max-w-3xl mx-auto px-5 sm:px-8 py-10">
+
+      <!-- Loading -->
+      <div id="state-loading" class="min-h-[60vh] flex flex-col items-center justify-center text-center">
+        <div class="h-8 w-8 rounded-full border-2 border-zinc-300 border-t-zinc-900 animate-spin"></div>
+        <p class="mt-4 text-sm text-zinc-400">Opening your prompt…</p>
+      </div>
+
+      <!-- Ready: the prompt + live countdown -->
+      <div id="state-ready" class="hidden">
+        <div class="flex items-center justify-between gap-4">
+          <a href="/#vibe-code/skills" class="text-sm text-zinc-400 hover:text-zinc-900 transition-colors">← sami’s skills</a>
+          <div id="countdown" class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-zinc-900 text-white text-sm font-semibold tabular-nums">
+            <span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
+            <span id="countdown-text">5:00</span>
+          </div>
+        </div>
+
+        <header class="mt-6">
+          <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-400">LLM skill prompt</p>
+          <div class="mt-1 flex flex-wrap items-baseline justify-between gap-3">
+            <h1 id="skill-cmd" class="font-display text-3xl md:text-4xl font-black tracking-[-0.015em] text-zinc-900"></h1>
+            <button id="copy-btn" type="button"
+              class="px-4 py-2 rounded-full border border-zinc-300 text-zinc-900 text-sm font-semibold hover:border-zinc-900 transition-colors">Copy prompt</button>
+          </div>
+          <p class="mt-2 text-sm text-zinc-500">This link expires when the timer hits zero. Copy what you need before then.</p>
+        </header>
+
+        <article id="prompt-body" class="md-body mt-7 pb-24"></article>
+      </div>
+
+      <!-- Expired -->
+      <div id="state-expired" class="hidden min-h-[60vh] flex flex-col items-center justify-center text-center">
+        <div class="h-12 w-12 rounded-full bg-zinc-100 flex items-center justify-center text-2xl">⏳</div>
+        <h1 class="mt-5 font-display text-2xl md:text-3xl font-black tracking-[-0.015em] text-zinc-900">This link has expired</h1>
+        <p class="mt-3 text-zinc-500 max-w-md">Your 5-minute window is up. No worries, just request a fresh link and you’ll get a new one in your inbox.</p>
+        <a href="/#vibe-code/skills" class="mt-6 px-5 py-3 rounded-full bg-zinc-900 text-white text-sm font-semibold hover:bg-zinc-700 transition-colors">Request it again</a>
+      </div>
+
+      <!-- Invalid / error -->
+      <div id="state-invalid" class="hidden min-h-[60vh] flex flex-col items-center justify-center text-center">
+        <div class="h-12 w-12 rounded-full bg-zinc-100 flex items-center justify-center text-2xl">🔗</div>
+        <h1 class="mt-5 font-display text-2xl md:text-3xl font-black tracking-[-0.015em] text-zinc-900">This link isn’t valid</h1>
+        <p class="mt-3 text-zinc-500 max-w-md">It may be broken or already used. Request a new one and it’ll land in your inbox.</p>
+        <a href="/#vibe-code/skills" class="mt-6 px-5 py-3 rounded-full bg-zinc-900 text-white text-sm font-semibold hover:bg-zinc-700 transition-colors">Request a link</a>
+      </div>
+
+    </main>
+
+    <script>
+      (function () {
+        const $ = (id) => document.getElementById(id);
+        const show = (which) => {
+          ['loading', 'ready', 'expired', 'invalid'].forEach((s) =>
+            $('state-' + s).classList.toggle('hidden', s !== which)
+          );
+        };
+
+        const token = new URLSearchParams(location.search).get('token') || '';
+        if (!token) { show('invalid'); return; }
+
+        let promptText = '';
+        let timer = null;
+
+        function startCountdown(expiresAt) {
+          const cd = $('countdown');
+          const txt = $('countdown-text');
+          const dot = cd.querySelector('span.rounded-full');
+          function tick() {
+            const ms = expiresAt - Date.now();
+            if (ms <= 0) {
+              clearInterval(timer);
+              show('expired');
+              return;
+            }
+            const total = Math.ceil(ms / 1000);
+            const m = Math.floor(total / 60);
+            const s = total % 60;
+            txt.textContent = m + ':' + String(s).padStart(2, '0');
+            const urgent = ms <= 60000;
+            cd.classList.toggle('bg-red-600', urgent);
+            cd.classList.toggle('bg-zinc-900', !urgent);
+            cd.classList.toggle('is-urgent', urgent);
+            if (dot) dot.classList.toggle('bg-red-200', urgent);
+          }
+          tick();
+          timer = setInterval(tick, 1000);
+        }
+
+        function wireCopy() {
+          const btn = $('copy-btn');
+          btn.addEventListener('click', async () => {
+            try {
+              await navigator.clipboard.writeText(promptText);
+              const old = btn.textContent;
+              btn.textContent = 'Copied ✓';
+              setTimeout(() => { btn.textContent = old; }, 1800);
+            } catch (e) {
+              btn.textContent = 'Press ⌘/Ctrl+C';
+            }
+          });
+        }
+
+        async function open() {
+          try {
+            const r = await fetch('/api/skill-open', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ token }),
+            });
+            const data = await r.json().catch(() => ({}));
+            if (data.status === 'ok') {
+              promptText = data.content || '';
+              $('skill-cmd').textContent = data.skill || 'Skill prompt';
+              document.title = (data.skill || 'Skill') + ' prompt · Sami';
+              $('prompt-body').innerHTML = marked.parse(promptText);
+              wireCopy();
+              show('ready');
+              startCountdown(data.expiresAt || (Date.now() + 300000));
+            } else if (data.status === 'expired') {
+              show('expired');
+            } else {
+              show('invalid');
+            }
+          } catch (e) {
+            show('invalid');
+          }
+        }
+
+        open();
+      })();
+    </script>
+  </body>
+</html>
