@@ -245,14 +245,25 @@
       .vo-skill.is-active { background: #18181b; border-color: #18181b; }
       .vo-skill.is-active .vo-skill-cmd { color: #fff; }
       .vo-skill.is-active .vo-skill-sub { color: #a1a1aa; }
-      /* On mobile the side nav collapses into a slim, horizontally-scrolling pill row.
-         Only the command is shown — the descriptive name is hidden to keep one line. */
+      /* On mobile the side nav collapses into an underline-tab row (single line,
+         horizontally scrollable) and ONLY this row stays sticky. The skill detail
+         body header (title + Overview/Prompt tabs) scrolls away with the content. */
       @media (max-width: 767px) {
-        #vo-skill-nav { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+        /* Aside hugs the underline tabs from below so they sit on the divider. */
+        #vo-skills-aside { padding-bottom: 0.5rem; }
+        /* Skills row: underline tabs, single line, horizontally scrollable. */
+        #vo-skill-nav { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; scrollbar-width: none; gap: 22px; }
         #vo-skill-nav::-webkit-scrollbar { display: none; }
-        .vo-skill { width: auto; flex-shrink: 0; flex-direction: row; align-items: center; padding: 7px 14px; border-radius: 9999px; }
-        .vo-skill-cmd { font-size: 13px; white-space: nowrap; }
-        .vo-skill-sub { display: none; }
+        #vo-skill-nav .vo-skill { width: auto; flex-shrink: 0; flex-direction: row; align-items: center; padding: 4px 0 10px; border-radius: 0; background: transparent; border: 0; border-bottom: 2px solid transparent; }
+        #vo-skill-nav .vo-skill.is-active { background: transparent; border-bottom-color: #18181b; }
+        #vo-skill-nav .vo-skill .vo-skill-cmd { color: #71717a; font-size: 14px; font-weight: 600; white-space: nowrap; }
+        #vo-skill-nav .vo-skill.is-active .vo-skill-cmd { color: #18181b; font-weight: 700; }
+        #vo-skill-nav .vo-skill-sub { display: none; }
+        /* Body becomes the single scroll container so the title + Overview/Prompt
+           tabs scroll along with the content instead of staying pinned. */
+        #vo-skill-body { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+        #vo-skill-body > div { display: block; }
+        #vo-skill-body #skill-tabbody { overflow: visible; flex: none; min-height: 0; }
       }
 
       /* rendered markdown (the actual command prompt text) */
@@ -1253,7 +1264,7 @@
           ).join('');
           const html =
             '<div class="flex flex-col md:flex-row" style="height:min(84vh,760px)">' +
-              '<aside class="md:w-72 flex-shrink-0 border-b md:border-b-0 md:border-r border-zinc-100 p-5 md:p-6 overflow-y-auto">' +
+              '<aside id="vo-skills-aside" class="md:w-72 flex-shrink-0 border-b md:border-b-0 md:border-r border-zinc-100 p-5 md:p-6 overflow-y-auto">' +
                 '<p class="' + K + ' mb-4">LLM skills &amp; prompts</p>' +
                 '<div class="flex md:flex-col gap-2" id="vo-skill-nav">' + nav + '</div>' +
               '</aside>' +
