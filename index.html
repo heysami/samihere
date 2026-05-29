@@ -212,6 +212,13 @@
       .vo-scroll { flex: 1 1 auto; min-height: 0; min-width: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
       .vo-close { position: absolute; top: 16px; right: 16px; z-index: 6; width: 40px; height: 40px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,.85); border: 1px solid #e4e4e7; color: #18181b; cursor: pointer; transition: background .2s ease, color .2s ease, transform .25s ease; }
       .vo-close:hover { background: #18181b; color: #fff; transform: rotate(90deg); }
+      /* On mobile the overlay becomes a bottom-drawer — full width, no side/bottom
+         margin, top corners rounded — so it has the breathing room of a real sheet. */
+      @media (max-width: 767px) {
+        #vibe-overlay { padding: 0; align-items: flex-end; }
+        .vo-panel { max-width: 100%; max-height: 92vh; border-radius: 24px 24px 0 0; transform: translateY(100%); }
+        #vibe-overlay.vo-open .vo-panel { transform: translateY(0); }
+      }
 
       /* project-page screenshot thumbnails */
       .vo-thumb { border-radius: 12px; border: 1px solid #e4e4e7; object-fit: cover; cursor: pointer; opacity: .55; transition: opacity .2s ease, border-color .2s ease, transform .2s ease; }
@@ -300,6 +307,9 @@
         background: repeating-linear-gradient(135deg, #fafafa 0 12px, #f4f4f5 12px 24px); }
       .bench-shot-label { font-size: 12px; font-weight: 600; color: #71717a; text-align: center; line-height: 1.3; }
       /* Image skeleton: a shimmer placeholder until the image loads, then fade in. */
+      /* Inside a benchmark grid every image fills its uniformly-sized box (aspect-ratio
+         is set per-card inline) so adjacent cards always line up to the same height. */
+      .bench-grid .img-skel > img { width: 100%; height: 100%; object-fit: contain; }
       .img-skel { position: relative; background: #f4f4f5; overflow: hidden; }
       .img-skel::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%); animation: shimmer 1.5s infinite;
         background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,.6) 50%, transparent 100%); }
@@ -935,9 +945,9 @@
               kind: 'pair',
               caption: 'Three briefs, each built with and without the interview. Same model both ways.',
               examples: [
-                { title: 'A research reading &amp; annotation tool', a: 'With /wow-me', b: 'Without', imgA: 'img/bench/wowme-1-with.png', imgB: 'img/bench/wowme-1-without.png' },
-                { title: 'A late-night app for new parents', a: 'With /wow-me', b: 'Without', imgA: 'img/bench/wowme-2-with.png', imgB: 'img/bench/wowme-2-without.png' },
-                { title: 'An indie record label', a: 'With /wow-me', b: 'Without', imgA: 'img/bench/wowme-3-with.png', imgB: 'img/bench/wowme-3-without.png' },
+                { title: 'A research reading &amp; annotation tool', a: 'With /wow-me', b: 'Without', imgA: 'img/bench/wowme-1-with.png', imgB: 'img/bench/wowme-1-without.png', aspect: '16 / 9' },
+                { title: 'A late-night app for new parents', a: 'With /wow-me', b: 'Without', imgA: 'img/bench/wowme-2-with.png', imgB: 'img/bench/wowme-2-without.png', aspect: '1 / 2' },
+                { title: 'An indie record label', a: 'With /wow-me', b: 'Without', imgA: 'img/bench/wowme-3-with.png', imgB: 'img/bench/wowme-3-without.png', aspect: '1 / 2' },
               ],
             },
           },
@@ -1114,9 +1124,11 @@
           }
           return mdCache[s.file];
         }
-        // A full-bleed benchmark screenshot cell (natural aspect, never cropped).
-        function benchShot(src, label) {
-          return '<div class="img-skel">' +
+        // A benchmark screenshot cell. The aspect-ratio is set inline so every cell
+        // in a row has a uniform box height (.bench-grid .img-skel > img fills it).
+        const PHONE_ASPECT = '1 / 2';
+        function benchShot(src, label, aspect) {
+          return '<div class="img-skel" style="aspect-ratio:' + (aspect || PHONE_ASPECT) + '">' +
             '<img src="' + src + '" alt="' + label + ' result" loading="lazy" ' +
             'onload="this.parentNode.classList.add(\'is-loaded\')" onerror="this.parentNode.classList.add(\'is-loaded\')" /></div>';
         }
@@ -1124,13 +1136,10 @@
           if (b.kind === 'triple') {
             const c = b.columns;
             return '<p class="text-sm font-semibold text-zinc-700 mb-3">' + b.example + '</p>' +
-              '<div class="grid grid-cols-3 gap-3">' +
+              '<div class="grid grid-cols-1 md:grid-cols-3 gap-3 bench-grid">' +
               c.map(col =>
-                '<div class="rounded-2xl overflow-hidden bg-white ' + (col.best ? 'ring-2 ring-zinc-900' : 'border border-zinc-100') + '">' +
-                  '<div class="img-skel">' +
-                    '<img src="' + col.img + '" alt="' + col.label + ' result" loading="lazy" ' +
-                    'onload="this.parentNode.classList.add(\'is-loaded\')" onerror="this.parentNode.classList.add(\'is-loaded\')" />' +
-                  '</div>' +
+                '<div class="rounded-2xl overflow-hidden bg-white ' + (col.best ? 'ring-2 ring-zinc-900' : 'ring-1 ring-zinc-100') + '">' +
+                  benchShot(col.img, col.label, PHONE_ASPECT) +
                   '<div class="flex items-stretch divide-x divide-zinc-100 border-t border-zinc-100">' +
                     '<div class="flex-1 px-2 py-2"><div class="text-[10px] uppercase tracking-wider text-zinc-400">File</div><div class="text-sm font-semibold text-zinc-900">' + col.file + '</div></div>' +
                     '<div class="flex-1 px-2 py-2"><div class="text-[10px] uppercase tracking-wider text-zinc-400">Time</div><div class="text-sm font-semibold text-zinc-900">' + col.speed + '</div></div>' +
@@ -1147,9 +1156,9 @@
           return b.examples.map(ex =>
             '<div class="mb-6">' +
               '<p class="text-sm font-semibold text-zinc-700 mb-2">' + ex.title + '</p>' +
-              '<div class="grid grid-cols-2 gap-3">' +
-                '<div class="rounded-2xl overflow-hidden ring-2 ring-zinc-900">' + benchShot(ex.imgA, ex.a) + '<div class="px-3 py-2 text-xs font-semibold text-zinc-900">' + ex.a + '</div></div>' +
-                '<div class="rounded-2xl overflow-hidden border border-zinc-100">' + benchShot(ex.imgB, ex.b) + '<div class="px-3 py-2 text-xs font-semibold text-zinc-400">' + ex.b + '</div></div>' +
+              '<div class="grid grid-cols-1 md:grid-cols-2 gap-3 bench-grid">' +
+                '<div class="rounded-2xl overflow-hidden ring-2 ring-zinc-900">' + benchShot(ex.imgA, ex.a, ex.aspect) + '<div class="px-3 py-2 text-xs font-semibold text-zinc-900">' + ex.a + '</div></div>' +
+                '<div class="rounded-2xl overflow-hidden ring-1 ring-zinc-100">' + benchShot(ex.imgB, ex.b, ex.aspect) + '<div class="px-3 py-2 text-xs font-semibold text-zinc-400">' + ex.b + '</div></div>' +
               '</div>' +
             '</div>'
           ).join('');
