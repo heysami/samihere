@@ -212,12 +212,17 @@
       .vo-scroll { flex: 1 1 auto; min-height: 0; min-width: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
       .vo-close { position: absolute; top: 16px; right: 16px; z-index: 6; width: 40px; height: 40px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,.85); border: 1px solid #e4e4e7; color: #18181b; cursor: pointer; transition: background .2s ease, color .2s ease, transform .25s ease; }
       .vo-close:hover { background: #18181b; color: #fff; transform: rotate(90deg); }
+      /* The skills overlay's inner frame had a fixed 84vh that left a visible gap
+         above the panel on mobile (other overlays filled to ~92vh). This class
+         lets it fill the panel's max per viewport. */
+      .vo-skills-frame { height: min(84vh, 760px); }
       /* On mobile the overlay becomes a bottom-drawer — full width, no side/bottom
          margin, top corners rounded — so it has the breathing room of a real sheet. */
       @media (max-width: 767px) {
         #vibe-overlay { padding: 0; align-items: flex-end; }
         .vo-panel { max-width: 100%; max-height: 92vh; border-radius: 24px 24px 0 0; transform: translateY(100%); }
         #vibe-overlay.vo-open .vo-panel { transform: translateY(0); }
+        .vo-skills-frame { height: 92vh; }
       }
 
       /* project-page screenshot thumbnails */
@@ -1272,7 +1277,7 @@
               '<span class="vo-skill-sub text-xs text-zinc-400">' + s.name + '</span></button>'
           ).join('');
           const html =
-            '<div class="flex flex-col md:flex-row" style="height:min(84vh,760px)">' +
+            '<div class="flex flex-col md:flex-row vo-skills-frame">' +
               '<aside id="vo-skills-aside" class="md:w-72 flex-shrink-0 border-b md:border-b-0 md:border-r border-zinc-100 p-5 md:p-6 overflow-y-auto">' +
                 '<p class="' + K + ' mb-4">LLM skills &amp; prompts</p>' +
                 '<div class="flex md:flex-col gap-2" id="vo-skill-nav">' + nav + '</div>' +
