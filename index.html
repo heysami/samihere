@@ -245,6 +245,15 @@
       .vo-skill.is-active { background: #18181b; border-color: #18181b; }
       .vo-skill.is-active .vo-skill-cmd { color: #fff; }
       .vo-skill.is-active .vo-skill-sub { color: #a1a1aa; }
+      /* On mobile the side nav collapses into a slim, horizontally-scrolling pill row.
+         Only the command is shown — the descriptive name is hidden to keep one line. */
+      @media (max-width: 767px) {
+        #vo-skill-nav { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+        #vo-skill-nav::-webkit-scrollbar { display: none; }
+        .vo-skill { width: auto; flex-shrink: 0; flex-direction: row; align-items: center; padding: 7px 14px; border-radius: 9999px; }
+        .vo-skill-cmd { font-size: 13px; white-space: nowrap; }
+        .vo-skill-sub { display: none; }
+      }
 
       /* rendered markdown (the actual command prompt text) */
       .md-body { color: #3f3f46; line-height: 1.62; font-size: 15px; }
