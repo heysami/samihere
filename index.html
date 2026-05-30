@@ -251,11 +251,11 @@
          both ends so each cycle goes invisible → outline drawn fully → invisible,
          making the loop seamless with no fade and no hold — just an endless trace. */
       .hero-loader-mark { width: clamp(110px, 22vw, 180px); height: auto; display: block; }
-      .hero-loader-s { stroke-dasharray: 900; stroke-dashoffset: 900; animation: hero-s-draw 2.8s linear infinite; }
+      .hero-loader-s { stroke-dasharray: 2000; stroke-dashoffset: 2000; animation: hero-s-draw 3.4s linear infinite; }
       @keyframes hero-s-draw {
-        0%   { stroke-dashoffset: 900; }
+        0%   { stroke-dashoffset: 2000; }
         50%  { stroke-dashoffset: 0; }
-        100% { stroke-dashoffset: -900; }
+        100% { stroke-dashoffset: -2000; }
       }
 
       /* The skills overlay's inner frame had a fixed 84vh that left a visible gap
