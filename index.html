@@ -316,9 +316,13 @@
          is set per-card inline) so adjacent cards always line up to the same height. */
       .bench-grid .img-skel > img { width: 100%; height: 100%; object-fit: contain; }
       /* Mobile: turn the grid into a snap-scrolling carousel where the next card peeks
-         at ~50% to hint there's more. One scroll gesture snaps to the next card. */
+         at ~50% to hint there's more. One scroll gesture snaps to the next card.
+         Padding gives the ring-1/ring-2 outline room so it doesn't clip at the edges,
+         and a soft mask-image fades both sides so the peek doesn't get cut off abruptly. */
       @media (max-width: 767px) {
-        .bench-grid { display: flex !important; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none; grid-template-columns: none; scroll-padding: 0; }
+        .bench-grid { display: flex !important; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none; grid-template-columns: none; padding: 4px 8px; scroll-padding-inline: 8px;
+          -webkit-mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%);
+          mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%); }
         .bench-grid::-webkit-scrollbar { display: none; }
         .bench-grid > * { flex: 0 0 calc((100% - 12px) / 1.5); scroll-snap-align: start; }
       }
@@ -406,6 +410,11 @@
 
         <!-- ───────────── Section 1: Hero (composite hero image) ───────────── -->
         <section class="h-screen w-full snap-start flex flex-col items-center justify-center p-8 relative overflow-hidden">
+          <!-- Intro loading gate: hides the empty hero while the sofa/person images
+               and the 3D CRT scripts are still downloading on slow connections. -->
+          <div id="hero-loader" class="absolute inset-0 z-30 bg-white flex items-center justify-center transition-opacity duration-500" aria-hidden="true" aria-busy="true">
+            <div class="h-8 w-8 rounded-full border-2 border-zinc-300 border-t-zinc-900 animate-spin"></div>
+          </div>
           <div class="w-full max-w-5xl flex flex-col items-center gap-0 relative z-10 -translate-y-8">
             <div id="hero-art" class="w-full">
               <!-- Hero composite: B&W sofa raster · 3D computer (WebGL) · person illustration -->
@@ -1441,6 +1450,45 @@
         window.addEventListener('hashchange', applyRoute);
         if (location.hash) window.addEventListener('load', () => setTimeout(applyRoute, 80));
 
+      })();
+    </script>
+
+    <!-- Intro loading gatekeeper: keep #hero-loader covering the intro until the
+         sofa/person images are decoded and the 3D scripts finish (window 'load').
+         Falls back to a hard timeout so a wedged asset can never block forever. -->
+    <script>
+      (function () {
+        const loader = document.getElementById('hero-loader');
+        if (!loader) return;
+        const imgs = [
+          document.querySelector('img.hero-sofa'),
+          document.querySelector('img.hero-person'),
+        ].filter(Boolean);
+        let pendingImg = imgs.length;
+        let pageReady = document.readyState === 'complete';
+        let hidden = false;
+        function hide() {
+          if (hidden) return;
+          hidden = true;
+          loader.style.opacity = '0';
+          setTimeout(() => { loader.remove(); }, 600);
+        }
+        function maybeHide() { if (pendingImg === 0 && pageReady) hide(); }
+        imgs.forEach((img) => {
+          if (img.complete && img.naturalWidth > 0) { pendingImg--; return; }
+          const settled = () => {
+            img.removeEventListener('load', settled);
+            img.removeEventListener('error', settled);
+            pendingImg--;
+            maybeHide();
+          };
+          img.addEventListener('load', settled);
+          img.addEventListener('error', settled);
+        });
+        if (pageReady) maybeHide();
+        else window.addEventListener('load', () => { pageReady = true; maybeHide(); });
+        // Safety net: never let the gate persist beyond 8 seconds.
+        setTimeout(hide, 8000);
       })();
     </script>
   </body>
