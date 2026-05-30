@@ -1414,15 +1414,21 @@
             try { a.currentTime = 0; const p = a.play(); if (p && p.catch) p.catch(() => {}); } catch (e) {}
           }
           // Floating "meow" text bursts from the click point — each click spawns
-          // a small flock with random drift, scale and rotation. Pure CSS animation
-          // via per-element custom properties; elements remove themselves.
+          // a small flock with random drift, scale, rotation and colour. Each label
+          // is one solid colour pulled from a playful palette; consecutive picks
+          // never repeat so the burst always reads as multi-coloured.
           const MEOW_VARIANTS = ['meow', 'meow!', 'mrrow', 'meow~', 'MEOW', 'mew', 'meow :3', 'mrow?', 'nyaa'];
+          const MEOW_COLORS   = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899'];
+          let lastMeowColor = -1;
           function meowBurst(x, y) {
             const count = 2 + Math.floor(Math.random() * 2); // 2 or 3 per click
             for (let i = 0; i < count; i++) {
               const el = document.createElement('span');
               el.textContent = MEOW_VARIANTS[Math.floor(Math.random() * MEOW_VARIANTS.length)];
               el.className = 'meow-float';
+              let c; do { c = Math.floor(Math.random() * MEOW_COLORS.length); } while (MEOW_COLORS.length > 1 && c === lastMeowColor);
+              lastMeowColor = c;
+              el.style.color = MEOW_COLORS[c];
               el.style.left = (x + (Math.random() - 0.5) * 50) + 'px';
               el.style.top  = (y + (Math.random() - 0.5) * 20) + 'px';
               el.style.setProperty('--dx',    ((Math.random() - 0.5) * 140) + 'px');
