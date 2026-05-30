@@ -213,6 +213,16 @@
       .vo-scroll { flex: 1 1 auto; min-height: 0; min-width: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
       .vo-close { position: absolute; top: 16px; right: 16px; z-index: 6; width: 40px; height: 40px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,.85); border: 1px solid #e4e4e7; color: #18181b; cursor: pointer; transition: background .2s ease, color .2s ease, transform .25s ease; }
       .vo-close:hover { background: #18181b; color: #fff; transform: rotate(90deg); }
+      /* Floating "meow" text that bursts from each click on the centre cat card.
+         Per-element CSS variables (--dx, --rot, --scale) make each one drift
+         and rotate differently so a quick tap-spam looks playful, not robotic. */
+      .meow-float { position: fixed; pointer-events: none; z-index: 1000; font-family: 'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif; font-weight: 900; font-size: clamp(20px, 3vw, 36px); color: #18181b; letter-spacing: -0.02em; user-select: none; white-space: nowrap; will-change: transform, opacity; opacity: 0; transform: translate(-50%, -50%) scale(.4); animation: meow-float 1.4s cubic-bezier(.22,1,.36,1) forwards; }
+      @keyframes meow-float {
+        0%   { opacity: 0; transform: translate(-50%, -50%) scale(.4) rotate(0deg); }
+        20%  { opacity: 1; transform: translate(-50%, -50%) scale(var(--scale, 1)) rotate(calc(var(--rot, 0deg) * 0.3)); }
+        100% { opacity: 0; transform: translate(calc(-50% + var(--dx, 0px)), calc(-50% - 160px)) scale(var(--scale, 1)) rotate(var(--rot, 0deg)); }
+      }
+
       /* Intro hero loader: the "S." wordmark breathes and the period pulses like a
          heartbeat so the loading state feels like the brand, not a generic spinner. */
       .hero-loader-mark { font-size: clamp(72px, 18vw, 128px); letter-spacing: -0.015em; animation: hero-loader-breath 1.8s ease-in-out infinite; display: inline-flex; align-items: baseline; }
@@ -418,10 +428,11 @@
 
         <!-- ───────────── Section 1: Hero (composite hero image) ───────────── -->
         <section class="h-screen w-full snap-start flex flex-col items-center justify-center p-8 relative overflow-hidden">
-          <!-- Intro loading gate: hides the empty hero while the sofa/person images
-               and the 3D CRT scripts are still downloading on slow connections.
-               The "S." brand mark itself breathes and the dot pulses as the loader. -->
-          <div id="hero-loader" class="absolute inset-0 z-30 bg-white flex items-center justify-center transition-opacity duration-500" aria-hidden="true" aria-busy="true">
+          <!-- Intro loading gate: covers the whole viewport (not just the hero section)
+               so other content can't be scrolled to while sofa/person images and the
+               3D CRT scripts are still downloading. The "S." brand mark itself
+               breathes and the dot pulses as the loader. -->
+          <div id="hero-loader" class="fixed inset-0 z-[9999] bg-white flex items-center justify-center transition-opacity duration-500" aria-hidden="true" aria-busy="true">
             <div class="hero-loader-mark font-display font-black text-zinc-900 leading-none">S<span class="hero-loader-dot">.</span></div>
           </div>
           <div class="w-full max-w-5xl flex flex-col items-center gap-0 relative z-10 -translate-y-8">
@@ -1392,13 +1403,34 @@
             const a = meows[n];
             try { a.currentTime = 0; const p = a.play(); if (p && p.catch) p.catch(() => {}); } catch (e) {}
           }
-          cCenter.addEventListener('click', () => {
+          // Floating "meow" text bursts from the click point — each click spawns
+          // a small flock with random drift, scale and rotation. Pure CSS animation
+          // via per-element custom properties; elements remove themselves.
+          const MEOW_VARIANTS = ['meow', 'meow!', 'mrrow', 'meow~', 'MEOW', 'mew', 'meow :3', 'mrow?', 'nyaa'];
+          function meowBurst(x, y) {
+            const count = 2 + Math.floor(Math.random() * 2); // 2 or 3 per click
+            for (let i = 0; i < count; i++) {
+              const el = document.createElement('span');
+              el.textContent = MEOW_VARIANTS[Math.floor(Math.random() * MEOW_VARIANTS.length)];
+              el.className = 'meow-float';
+              el.style.left = (x + (Math.random() - 0.5) * 50) + 'px';
+              el.style.top  = (y + (Math.random() - 0.5) * 20) + 'px';
+              el.style.setProperty('--dx',    ((Math.random() - 0.5) * 140) + 'px');
+              el.style.setProperty('--rot',   ((Math.random() - 0.5) * 40) + 'deg');
+              el.style.setProperty('--scale', (0.85 + Math.random() * 0.55).toFixed(2));
+              el.style.animationDelay = (i * 60) + 'ms';
+              document.body.appendChild(el);
+              setTimeout(() => el.remove(), 1700);
+            }
+          }
+          cCenter.addEventListener('click', (e) => {
             let n; do { n = Math.floor(Math.random() * GIF_SET.length); } while (GIF_SET.length > 1 && n === last);
             last = n; lastClicked = GIF_SET[n]; showGif(lastClicked);
             gifEl.classList.add('show');
             playMeow();
             sonicBoom(cCenter);
             cCenter.classList.remove('card-pop'); void cCenter.offsetWidth; cCenter.classList.add('card-pop');
+            meowBurst(e.clientX, e.clientY);
           });
         }
 
@@ -1469,6 +1501,10 @@
       (function () {
         const loader = document.getElementById('hero-loader');
         if (!loader) return;
+        // Lock the page scroll while the gate is up so visitors can't sneak past it
+        // into other sections before the intro is ready.
+        const scroller = document.getElementById('scroller');
+        if (scroller) scroller.style.overflow = 'hidden';
         const imgs = [
           document.querySelector('img.hero-sofa'),
           document.querySelector('img.hero-person'),
@@ -1479,6 +1515,7 @@
         function hide() {
           if (hidden) return;
           hidden = true;
+          if (scroller) scroller.style.overflow = '';
           loader.style.opacity = '0';
           setTimeout(() => { loader.remove(); }, 600);
         }
