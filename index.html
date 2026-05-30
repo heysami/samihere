@@ -223,6 +223,27 @@
         100% { opacity: 0; transform: translate(calc(-50% + var(--dx, 0px)), calc(-50% - 160px)) scale(var(--scale, 1)) rotate(var(--rot, 0deg)); }
       }
 
+      /* Mobile-only chat headline animation: a cursor descends, taps "stalk me",
+         the text swaps to "tap me to chat" for a beat, then the cursor retreats
+         and the cycle restarts. Pure CSS, three keyframed elements share one
+         4.5-second loop (rest text, tap text, cursor) phased against each other. */
+      @media (max-width: 767px) {
+        .hd-m-rest    { animation: hd-m-rest 4.5s ease-in-out infinite; }
+        .hd-m-tap     { animation: hd-m-tap 4.5s ease-in-out infinite; opacity: 0; }
+        .hd-m-cursor  { animation: hd-m-cursor 4.5s ease-in-out infinite; opacity: 0; transform-origin: 50% 100%; }
+      }
+      @keyframes hd-m-rest   { 0%, 35% { opacity: 1; } 45%, 88% { opacity: 0; } 100% { opacity: 1; } }
+      @keyframes hd-m-tap    { 0%, 35% { opacity: 0; } 45%, 88% { opacity: 1; } 100% { opacity: 0; } }
+      @keyframes hd-m-cursor {
+        0%   { transform: translate(60px, -60px) rotate(-14deg); opacity: 0; }
+        10%  { opacity: 1; }
+        35%  { transform: translate(28px, 8px) rotate(-10deg);    opacity: 1; }
+        42%  { transform: translate(28px, 16px) rotate(-6deg) scale(.86); opacity: 1; }
+        50%  { transform: translate(28px, 8px) rotate(-10deg) scale(1);   opacity: 1; }
+        85%  { transform: translate(28px, 8px) rotate(-10deg);    opacity: 1; }
+        100% { transform: translate(60px, -60px) rotate(-14deg); opacity: 0; }
+      }
+
       /* Intro hero loader: an SVG "S" whose stroke is drawn from one end to the
          other, holds, then fades and redraws — the After-Effects "Stroke" reveal.
          The drop-shadow gives the stroke a soft trail under it as it appears. */
@@ -538,8 +559,15 @@
             <!-- stage: prompt -->
             <div id="chat-prompt" class="chat-stage flex flex-col items-center" style="transition: opacity .4s, filter .4s, transform .4s">
               <div id="chat-headline" class="relative h-24 md:h-32 flex items-center justify-center cursor-pointer group">
-                <h2 id="hd-rest"  class="absolute font-display text-6xl md:text-8xl font-black tracking-[-0.015em] text-zinc-900 whitespace-nowrap" style="transition:filter .3s, opacity .3s">stalk me</h2>
-                <h2 id="hd-hover" class="absolute font-display text-6xl md:text-8xl font-black tracking-[-0.015em] text-zinc-900 whitespace-nowrap" style="transition:filter .3s, opacity .3s; filter:blur(12px); opacity:0">click to chat</h2>
+                <!-- Desktop: hover-driven blur swap between "stalk me" and "click to chat". -->
+                <h2 id="hd-rest"  class="hidden md:block absolute font-display text-6xl md:text-8xl font-black tracking-[-0.015em] text-zinc-900 whitespace-nowrap" style="transition:filter .3s, opacity .3s">stalk me</h2>
+                <h2 id="hd-hover" class="hidden md:block absolute font-display text-6xl md:text-8xl font-black tracking-[-0.015em] text-zinc-900 whitespace-nowrap" style="transition:filter .3s, opacity .3s; filter:blur(12px); opacity:0">click to chat</h2>
+                <!-- Mobile: cursor-tap animation loop swapping "stalk me" ↔ "tap me to chat". -->
+                <h2 class="hd-m-rest md:hidden absolute font-display text-5xl font-black tracking-[-0.015em] text-zinc-900 whitespace-nowrap">stalk me</h2>
+                <h2 class="hd-m-tap md:hidden absolute font-display text-5xl font-black tracking-[-0.015em] text-zinc-900 whitespace-nowrap">tap me to chat</h2>
+                <svg class="hd-m-cursor md:hidden absolute" viewBox="0 0 24 32" width="30" height="38" aria-hidden="true">
+                  <path d="M 3 2 L 3 24 L 8 19 L 11 28 L 14 27 L 11 18 L 18 18 Z" fill="#18181b" stroke="#ffffff" stroke-width="1.6" stroke-linejoin="round" />
+                </svg>
               </div>
               <div id="chat-socials" class="flex gap-6 mt-8 text-zinc-400" style="transition:opacity .3s">
                 <a href="https://github.com/heysami" target="_blank" rel="noopener" aria-label="GitHub" class="hover:text-zinc-900 transition-colors cursor-pointer">{{ICON:github}}</a>
