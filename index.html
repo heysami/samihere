@@ -223,12 +223,18 @@
         100% { opacity: 0; transform: translate(calc(-50% + var(--dx, 0px)), calc(-50% - 160px)) scale(var(--scale, 1)) rotate(var(--rot, 0deg)); }
       }
 
-      /* Intro hero loader: the "S." wordmark breathes and the period pulses like a
-         heartbeat so the loading state feels like the brand, not a generic spinner. */
-      .hero-loader-mark { font-size: clamp(72px, 18vw, 128px); letter-spacing: -0.015em; animation: hero-loader-breath 1.8s ease-in-out infinite; display: inline-flex; align-items: baseline; }
-      .hero-loader-dot { display: inline-block; transform-origin: 50% 80%; animation: hero-loader-dot 1.1s ease-in-out infinite; }
-      @keyframes hero-loader-breath { 0%, 100% { opacity: .55; transform: scale(.985); } 50% { opacity: 1; transform: scale(1); } }
-      @keyframes hero-loader-dot     { 0%, 100% { transform: scale(.55); }            50% { transform: scale(1.35); } }
+      /* Intro hero loader: an SVG "S" whose stroke is drawn from one end to the
+         other, holds, then fades and redraws — the After-Effects "Stroke" reveal.
+         The drop-shadow gives the stroke a soft trail under it as it appears. */
+      .hero-loader-mark { width: clamp(110px, 22vw, 180px); height: auto; display: block; filter: drop-shadow(0 0 12px rgba(24, 24, 27, 0.14)); }
+      .hero-loader-mark path { stroke-dasharray: 100; stroke-dashoffset: 100; animation: hero-s-draw 2.6s cubic-bezier(.65, 0, .35, 1) infinite; }
+      @keyframes hero-s-draw {
+        0%   { stroke-dashoffset: 100; opacity: 0; }
+        6%   { stroke-dashoffset: 100; opacity: 1; }
+        55%  { stroke-dashoffset: 0;   opacity: 1; }
+        80%  { stroke-dashoffset: 0;   opacity: 1; }
+        100% { stroke-dashoffset: 0;   opacity: 0; }
+      }
 
       /* The skills overlay's inner frame had a fixed 84vh that left a visible gap
          above the panel on mobile (other overlays filled to ~92vh). This class
@@ -430,10 +436,14 @@
         <section class="h-screen w-full snap-start flex flex-col items-center justify-center p-8 relative overflow-hidden">
           <!-- Intro loading gate: covers the whole viewport (not just the hero section)
                so other content can't be scrolled to while sofa/person images and the
-               3D CRT scripts are still downloading. The "S." brand mark itself
-               breathes and the dot pulses as the loader. -->
+               3D CRT scripts are still downloading. The "S" mark is drawn stroke-by-
+               stroke like an After Effects stroke reveal. -->
           <div id="hero-loader" class="fixed inset-0 z-[9999] bg-white flex items-center justify-center transition-opacity duration-500" aria-hidden="true" aria-busy="true">
-            <div class="hero-loader-mark font-display font-black text-zinc-900 leading-none">S<span class="hero-loader-dot">.</span></div>
+            <svg class="hero-loader-mark" viewBox="0 0 120 160" aria-hidden="true">
+              <path d="M 92 38 C 92 18, 28 18, 28 52 C 28 82, 92 82, 92 112 C 92 144, 28 144, 28 122"
+                    pathLength="100" fill="none" stroke="#18181b" stroke-width="22"
+                    stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
           </div>
           <div class="w-full max-w-5xl flex flex-col items-center gap-0 relative z-10 -translate-y-8">
             <div id="hero-art" class="w-full">
