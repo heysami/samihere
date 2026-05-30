@@ -1612,17 +1612,37 @@
         // The window flag covers the race where the scene was ready before this
         // gate script even attached its listener.
         let computerReady = !!window.heroComputerReady;
-        // The hero composite layers + #hero-title fade in over ~1.2s after window
-        // 'load'. Keep the loader up until #hero-title's transition finishes so
-        // visitors never see a half-built hero behind the fading loader.
+        // The hero composite is more than just the computer — there's the sofa
+        // photo, the person illustration, the CRT outline, the shadows, and the
+        // "Sami here," title — each .lyr fades in with its own transition delay,
+        // then #hero-title fades in last (~1.18s after window 'load'). Wait for
+        // EVERY .lyr inside .hero-composite plus #hero-title to fire their final
+        // transitionend before hiding the loader, so visitors never catch the
+        // hero entrance mid-way through behind the fading gate.
+        let entrancePending = 0;
         let entranceDone = false;
+        function settleEntrance() {
+          entrancePending--;
+          if (entrancePending <= 0) { entranceDone = true; maybeHide(); }
+        }
+        document.querySelectorAll('.hero-composite .lyr').forEach((el) => {
+          entrancePending++;
+          el.addEventListener('transitionend', function once(e) {
+            if (e.target !== el || e.propertyName !== 'opacity') return;
+            el.removeEventListener('transitionend', once);
+            settleEntrance();
+          });
+        });
         const heroTitle = document.getElementById('hero-title');
         if (heroTitle) {
-          const onTitleIn = () => { entranceDone = true; maybeHide(); };
-          heroTitle.addEventListener('transitionend', onTitleIn, { once: true });
-        } else {
-          entranceDone = true;
+          entrancePending++;
+          heroTitle.addEventListener('transitionend', function once(e) {
+            if (e.target !== heroTitle || e.propertyName !== 'opacity') return;
+            heroTitle.removeEventListener('transitionend', once);
+            settleEntrance();
+          });
         }
+        if (entrancePending === 0) entranceDone = true;
         let hidden = false;
         // Always show the loader long enough for the marching-S animation to
         // play through at least one full cycle, even if every asset is in
@@ -1655,13 +1675,13 @@
         });
         if (pageReady) maybeHide();
         else window.addEventListener('load', () => { pageReady = true; maybeHide(); });
-        // Fallback: even if transitionend never fires (e.g. .in never gets added),
-        // 1.5s after window 'load' is enough for the hero entrance to be visible.
+        // Fallback: even if transitionend never fires for some layer, 2.2s after
+        // window 'load' is enough for the entire hero entrance to be visible.
         window.addEventListener('load', () => {
-          setTimeout(() => { entranceDone = true; maybeHide(); }, 1500);
+          setTimeout(() => { entranceDone = true; maybeHide(); }, 2200);
         });
-        // Safety net: never let the gate persist beyond 9 seconds.
-        setTimeout(hide, 9000);
+        // Safety net: never let the gate persist beyond 10 seconds.
+        setTimeout(hide, 10000);
       })();
     </script>
   </body>
