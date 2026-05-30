@@ -230,20 +230,37 @@
       @media (max-width: 767px) {
         .hd-m-tap     { opacity: 0; }
         .hd-m-cursor  { opacity: 0; transform-origin: 50% 100%; }
-        .hd-anim-go .hd-m-rest    { animation: hd-m-rest 4.5s ease-in-out forwards; }
-        .hd-anim-go .hd-m-tap     { animation: hd-m-tap 4.5s ease-in-out forwards; }
-        .hd-anim-go .hd-m-cursor  { animation: hd-m-cursor 4.5s ease-in-out forwards; }
+        /* Burst sits at the cursor's tap point; particles spread out from there. */
+        .hd-m-burst   { transform: translate(45px, 24px); pointer-events: none; }
+        .hd-m-particle {
+          position: absolute; width: 6px; height: 6px; margin: -3px 0 0 -3px;
+          border-radius: 50%; background: #18181b; opacity: 0;
+        }
+        .hd-anim-go .hd-m-rest      { animation: hd-m-rest 4.5s ease-in-out forwards; }
+        .hd-anim-go .hd-m-tap       { animation: hd-m-tap 4.5s ease-in-out forwards; }
+        .hd-anim-go .hd-m-cursor    { animation: hd-m-cursor 4.5s ease-in-out forwards; }
+        .hd-anim-go .hd-m-particle  { animation: hd-m-particle 4.5s cubic-bezier(.2,.7,.3,1) forwards; }
       }
-      @keyframes hd-m-rest   { 0%, 35% { opacity: 1; } 45%, 88% { opacity: 0; } 100% { opacity: 1; } }
-      @keyframes hd-m-tap    { 0%, 35% { opacity: 0; } 45%, 88% { opacity: 1; } 100% { opacity: 0; } }
+      @keyframes hd-m-rest   { 0%, 35% { opacity: 1; } 43%, 88% { opacity: 0; } 100% { opacity: 1; } }
+      @keyframes hd-m-tap    { 0%, 35% { opacity: 0; } 43%, 88% { opacity: 1; } 100% { opacity: 0; } }
       @keyframes hd-m-cursor {
         0%   { transform: translate(60px, -60px) rotate(-14deg); opacity: 0; }
         10%  { opacity: 1; }
-        35%  { transform: translate(28px, 8px) rotate(-10deg);    opacity: 1; }
-        42%  { transform: translate(28px, 16px) rotate(-6deg) scale(.86); opacity: 1; }
-        50%  { transform: translate(28px, 8px) rotate(-10deg) scale(1);   opacity: 1; }
-        85%  { transform: translate(28px, 8px) rotate(-10deg);    opacity: 1; }
+        35%  { transform: translate(28px, 6px) rotate(-12deg) scale(1);    opacity: 1; }
+        40%  { transform: translate(28px, 20px) rotate(-2deg) scale(.74);  opacity: 1; }  /* fast hard tap down */
+        44%  { transform: translate(28px, 0px) rotate(-14deg) scale(1.14); opacity: 1; }  /* spring back / overshoot */
+        49%  { transform: translate(28px, 6px) rotate(-12deg) scale(1);    opacity: 1; }  /* settle */
+        85%  { transform: translate(28px, 6px) rotate(-12deg);             opacity: 1; }
         100% { transform: translate(60px, -60px) rotate(-14deg); opacity: 0; }
+      }
+      /* Particle burst: 8 dots that flick radially from the cursor's tap point
+         at the exact moment of impact, then fade out quickly. Each particle's
+         direction is set via the --a custom property on the span. */
+      @keyframes hd-m-particle {
+        0%, 39%   { opacity: 0; transform: rotate(var(--a, 0deg)) translate(0px, 0) scale(0); }
+        42%       { opacity: 1; transform: rotate(var(--a, 0deg)) translate(6px, 0) scale(1.15); }
+        55%       { opacity: 0.8; transform: rotate(var(--a, 0deg)) translate(26px, 0) scale(0.55); }
+        70%, 100% { opacity: 0;   transform: rotate(var(--a, 0deg)) translate(36px, 0) scale(0); }
       }
 
       /* Intro hero loader: the "S" is the actual Bricolage Grotesque glyph outline.
@@ -575,6 +592,17 @@
                   <path d="M11 3a2 2 0 0 0-2 2v8.5l-2-2a2 2 0 1 0-2.83 2.83l5 5A4 4 0 0 0 12 21h2a4 4 0 0 0 4-4V9a1.5 1.5 0 0 0-3 0V8a1.5 1.5 0 0 0-3 0V5a2 2 0 0 0-2-2Z"
                         fill="#18181b" stroke="#ffffff" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round" />
                 </svg>
+                <!-- Burst particles that flick outward when the cursor taps down. -->
+                <div class="hd-m-burst md:hidden absolute" aria-hidden="true">
+                  <span class="hd-m-particle" style="--a:0deg"></span>
+                  <span class="hd-m-particle" style="--a:45deg"></span>
+                  <span class="hd-m-particle" style="--a:90deg"></span>
+                  <span class="hd-m-particle" style="--a:135deg"></span>
+                  <span class="hd-m-particle" style="--a:180deg"></span>
+                  <span class="hd-m-particle" style="--a:225deg"></span>
+                  <span class="hd-m-particle" style="--a:270deg"></span>
+                  <span class="hd-m-particle" style="--a:315deg"></span>
+                </div>
               </div>
               <div id="chat-socials" class="flex gap-6 mt-8 text-zinc-400" style="transition:opacity .3s">
                 <a href="https://github.com/heysami" target="_blank" rel="noopener" aria-label="GitHub" class="hover:text-zinc-900 transition-colors cursor-pointer">{{ICON:github}}</a>
