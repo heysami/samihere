@@ -247,16 +247,16 @@
       }
 
       /* Intro hero loader: the "S" is the actual Bricolage Grotesque glyph outline.
-         A short dash (60 units) paired with a gap roughly the size of the glyph's
-         outline (800 units) means there's always a dash marching along the
-         outline; animating stroke-dashoffset by one full pattern period (860)
-         keeps the march endless and the drawn segment never becomes the full
-         outline. Linear easing keeps the march evenly paced. */
+         A short dash + short gap pattern (50u dash, 300u gap) means several
+         short dashes always live on the outline at once. As stroke-dashoffset
+         shifts by one full pattern period (350) they march in lockstep around
+         the S forever — no segment ever becomes the full outline and no moment
+         on the cycle is "empty", so the march never pauses. */
       .hero-loader-mark { width: clamp(110px, 22vw, 180px); height: auto; display: block; }
-      .hero-loader-s { stroke-dasharray: 60 800; animation: hero-s-march 2s linear infinite; }
+      .hero-loader-s { stroke-dasharray: 50 300; animation: hero-s-march 1.4s linear infinite; }
       @keyframes hero-s-march {
         from { stroke-dashoffset: 0; }
-        to   { stroke-dashoffset: 860; }
+        to   { stroke-dashoffset: 350; }
       }
 
       /* The skills overlay's inner frame had a fixed 84vh that left a visible gap
