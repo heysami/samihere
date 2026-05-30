@@ -230,10 +230,14 @@
       @media (max-width: 767px) {
         .hd-m-tap     { opacity: 0; }
         .hd-m-cursor  { opacity: 0; transform-origin: 50% 100%; }
-        /* Burst sits at the cursor's tap point; particles spread out from there. */
-        .hd-m-burst   { transform: translate(45px, 24px); pointer-events: none; }
+        /* Burst origin shares the cursor's centred base (left/top 50%) so its
+           starting point is the headline centre — same as where the cursor SVG
+           is flex-centred. The translate then offsets it to the cursor's
+           fingertip at the tap-down moment (cursor translate 28,20 + fingertip
+           offset inside the 34x34 SVG ≈ -1,-13 → burst offset ≈ 28,7). */
+        .hd-m-burst   { left: 50%; top: 50%; transform: translate(28px, 7px); pointer-events: none; width: 0; height: 0; }
         .hd-m-particle {
-          position: absolute; width: 6px; height: 6px; margin: -3px 0 0 -3px;
+          position: absolute; left: 0; top: 0; width: 6px; height: 6px; margin: -3px 0 0 -3px;
           border-radius: 50%; background: #18181b; opacity: 0;
         }
         .hd-anim-go .hd-m-rest      { animation: hd-m-rest 4.5s ease-in-out forwards; }
