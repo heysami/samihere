@@ -247,18 +247,17 @@
       }
 
       /* Intro hero loader: the "S" is the actual Bricolage Grotesque glyph rendered
-         via SVG <text>. The stroke-dashoffset animation draws its outline first,
-         then fill-opacity fades the bold fill in — the After-Effects "Stroke + Fill"
-         reveal — held briefly, then everything fades out and the cycle restarts. */
+         via SVG <text>, but unfilled. The stroke-dashoffset animation traces just
+         the glyph outline — After-Effects "Stroke" reveal — held briefly, then
+         fades out and the cycle restarts. */
       .hero-loader-mark { width: clamp(110px, 22vw, 180px); height: auto; display: block; }
-      .hero-loader-s { stroke-dasharray: 900; stroke-dashoffset: 900; fill-opacity: 0; animation: hero-s-draw 2.8s cubic-bezier(.65, 0, .35, 1) infinite; }
+      .hero-loader-s { stroke-dasharray: 900; stroke-dashoffset: 900; animation: hero-s-draw 2.8s cubic-bezier(.65, 0, .35, 1) infinite; }
       @keyframes hero-s-draw {
-        0%   { stroke-dashoffset: 900; fill-opacity: 0; opacity: 0; }
-        6%   { stroke-dashoffset: 900; fill-opacity: 0; opacity: 1; }
-        50%  { stroke-dashoffset: 0;   fill-opacity: 0; opacity: 1; }
-        65%  { stroke-dashoffset: 0;   fill-opacity: 1; opacity: 1; }
-        82%  { stroke-dashoffset: 0;   fill-opacity: 1; opacity: 1; }
-        100% { stroke-dashoffset: 0;   fill-opacity: 0; opacity: 0; }
+        0%   { stroke-dashoffset: 900; opacity: 0; }
+        6%   { stroke-dashoffset: 900; opacity: 1; }
+        55%  { stroke-dashoffset: 0;   opacity: 1; }
+        82%  { stroke-dashoffset: 0;   opacity: 1; }
+        100% { stroke-dashoffset: 0;   opacity: 0; }
       }
 
       /* The skills overlay's inner frame had a fixed 84vh that left a visible gap
@@ -469,7 +468,7 @@
               <text x="60" y="132" text-anchor="middle"
                     font-family="'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif"
                     font-size="160" font-weight="900"
-                    fill="#18181b" stroke="#18181b" stroke-width="2"
+                    fill="none" stroke="#18181b" stroke-width="2"
                     stroke-linejoin="round" stroke-linecap="round"
                     class="hero-loader-s">S</text>
             </svg>
