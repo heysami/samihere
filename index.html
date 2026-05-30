@@ -1612,6 +1612,17 @@
         // The window flag covers the race where the scene was ready before this
         // gate script even attached its listener.
         let computerReady = !!window.heroComputerReady;
+        // The hero composite layers + #hero-title fade in over ~1.2s after window
+        // 'load'. Keep the loader up until #hero-title's transition finishes so
+        // visitors never see a half-built hero behind the fading loader.
+        let entranceDone = false;
+        const heroTitle = document.getElementById('hero-title');
+        if (heroTitle) {
+          const onTitleIn = () => { entranceDone = true; maybeHide(); };
+          heroTitle.addEventListener('transitionend', onTitleIn, { once: true });
+        } else {
+          entranceDone = true;
+        }
         let hidden = false;
         // Always show the loader long enough for the marching-S animation to
         // play through at least one full cycle, even if every asset is in
@@ -1629,7 +1640,7 @@
             setTimeout(() => { loader.remove(); }, 600);
           }, wait);
         }
-        function maybeHide() { if (pendingImg === 0 && pageReady && computerReady) hide(); }
+        function maybeHide() { if (pendingImg === 0 && pageReady && computerReady && entranceDone) hide(); }
         window.addEventListener('hero-computer-ready', () => { computerReady = true; maybeHide(); });
         imgs.forEach((img) => {
           if (img.complete && img.naturalWidth > 0) { pendingImg--; return; }
@@ -1644,8 +1655,13 @@
         });
         if (pageReady) maybeHide();
         else window.addEventListener('load', () => { pageReady = true; maybeHide(); });
-        // Safety net: never let the gate persist beyond 8 seconds.
-        setTimeout(hide, 8000);
+        // Fallback: even if transitionend never fires (e.g. .in never gets added),
+        // 1.5s after window 'load' is enough for the hero entrance to be visible.
+        window.addEventListener('load', () => {
+          setTimeout(() => { entranceDone = true; maybeHide(); }, 1500);
+        });
+        // Safety net: never let the gate persist beyond 9 seconds.
+        setTimeout(hide, 9000);
       })();
     </script>
   </body>
