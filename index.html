@@ -1607,6 +1607,11 @@
         ].filter(Boolean);
         let pendingImg = imgs.length;
         let pageReady = document.readyState === 'complete';
+        // The 3D CRT scene fires this event after its first render; until then
+        // the hero looks empty even after window 'load', so the loader stays up.
+        // The window flag covers the race where the scene was ready before this
+        // gate script even attached its listener.
+        let computerReady = !!window.heroComputerReady;
         let hidden = false;
         // Always show the loader long enough for the marching-S animation to
         // play through at least one full cycle, even if every asset is in
@@ -1624,7 +1629,8 @@
             setTimeout(() => { loader.remove(); }, 600);
           }, wait);
         }
-        function maybeHide() { if (pendingImg === 0 && pageReady) hide(); }
+        function maybeHide() { if (pendingImg === 0 && pageReady && computerReady) hide(); }
+        window.addEventListener('hero-computer-ready', () => { computerReady = true; maybeHide(); });
         imgs.forEach((img) => {
           if (img.complete && img.naturalWidth > 0) { pendingImg--; return; }
           const settled = () => {

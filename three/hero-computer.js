@@ -470,6 +470,15 @@ function initScene(canvas) {
   resize();
   renderAll();
 
+  // Signal the intro loading gate that the 3D scene has its first frame on
+  // screen — until this fires, #hero-loader stays up so visitors never see
+  // an empty CRT slot mid-load. The flag covers the race where the gate
+  // script attaches its listener after this event has already dispatched.
+  try {
+    window.heroComputerReady = true;
+    window.dispatchEvent(new CustomEvent('hero-computer-ready'));
+  } catch (e) {}
+
   // Pause RAF when the canvas scrolls offscreen.
   if ('IntersectionObserver' in window) {
     const io = new IntersectionObserver((entries) => {
