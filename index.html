@@ -246,17 +246,19 @@
         100% { transform: translate(60px, -60px) rotate(-14deg); opacity: 0; }
       }
 
-      /* Intro hero loader: an SVG "S" whose stroke is drawn from one end to the
-         other, holds, then fades and redraws — the After-Effects "Stroke" reveal.
-         The drop-shadow gives the stroke a soft trail under it as it appears. */
+      /* Intro hero loader: the "S" is the actual Bricolage Grotesque glyph rendered
+         via SVG <text>. The stroke-dashoffset animation draws its outline first,
+         then fill-opacity fades the bold fill in — the After-Effects "Stroke + Fill"
+         reveal — held briefly, then everything fades out and the cycle restarts. */
       .hero-loader-mark { width: clamp(110px, 22vw, 180px); height: auto; display: block; }
-      .hero-loader-mark path { stroke-dasharray: 100; stroke-dashoffset: 100; animation: hero-s-draw 2.6s cubic-bezier(.65, 0, .35, 1) infinite; }
+      .hero-loader-s { stroke-dasharray: 900; stroke-dashoffset: 900; fill-opacity: 0; animation: hero-s-draw 2.8s cubic-bezier(.65, 0, .35, 1) infinite; }
       @keyframes hero-s-draw {
-        0%   { stroke-dashoffset: 100; opacity: 0; }
-        6%   { stroke-dashoffset: 100; opacity: 1; }
-        55%  { stroke-dashoffset: 0;   opacity: 1; }
-        80%  { stroke-dashoffset: 0;   opacity: 1; }
-        100% { stroke-dashoffset: 0;   opacity: 0; }
+        0%   { stroke-dashoffset: 900; fill-opacity: 0; opacity: 0; }
+        6%   { stroke-dashoffset: 900; fill-opacity: 0; opacity: 1; }
+        50%  { stroke-dashoffset: 0;   fill-opacity: 0; opacity: 1; }
+        65%  { stroke-dashoffset: 0;   fill-opacity: 1; opacity: 1; }
+        82%  { stroke-dashoffset: 0;   fill-opacity: 1; opacity: 1; }
+        100% { stroke-dashoffset: 0;   fill-opacity: 0; opacity: 0; }
       }
 
       /* The skills overlay's inner frame had a fixed 84vh that left a visible gap
@@ -459,13 +461,17 @@
         <section class="h-screen w-full snap-start flex flex-col items-center justify-center p-8 relative overflow-hidden">
           <!-- Intro loading gate: covers the whole viewport (not just the hero section)
                so other content can't be scrolled to while sofa/person images and the
-               3D CRT scripts are still downloading. The "S" mark is drawn stroke-by-
-               stroke like an After Effects stroke reveal. -->
+               3D CRT scripts are still downloading. The "S" mark is the actual
+               Bricolage Grotesque glyph; the stroke-dashoffset animation draws its
+               outline first, then the fill fades in like an After Effects stroke reveal. -->
           <div id="hero-loader" class="fixed inset-0 z-[9999] bg-white flex items-center justify-center transition-opacity duration-500" aria-hidden="true" aria-busy="true">
             <svg class="hero-loader-mark" viewBox="0 0 120 160" aria-hidden="true">
-              <path d="M 92 38 C 92 18, 28 18, 28 52 C 28 82, 92 82, 92 112 C 92 144, 28 144, 28 122"
-                    pathLength="100" fill="none" stroke="#18181b" stroke-width="22"
-                    stroke-linecap="round" stroke-linejoin="round" />
+              <text x="60" y="132" text-anchor="middle"
+                    font-family="'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif"
+                    font-size="160" font-weight="900"
+                    fill="#18181b" stroke="#18181b" stroke-width="2"
+                    stroke-linejoin="round" stroke-linecap="round"
+                    class="hero-loader-s">S</text>
             </svg>
           </div>
           <div class="w-full max-w-5xl flex flex-col items-center gap-0 relative z-10 -translate-y-8">
