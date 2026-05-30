@@ -315,6 +315,13 @@
       /* Inside a benchmark grid every image fills its uniformly-sized box (aspect-ratio
          is set per-card inline) so adjacent cards always line up to the same height. */
       .bench-grid .img-skel > img { width: 100%; height: 100%; object-fit: contain; }
+      /* Mobile: turn the grid into a snap-scrolling carousel where the next card peeks
+         at ~50% to hint there's more. One scroll gesture snaps to the next card. */
+      @media (max-width: 767px) {
+        .bench-grid { display: flex !important; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none; grid-template-columns: none; scroll-padding: 0; }
+        .bench-grid::-webkit-scrollbar { display: none; }
+        .bench-grid > * { flex: 0 0 calc((100% - 12px) / 1.5); scroll-snap-align: start; }
+      }
       .img-skel { position: relative; background: #f4f4f5; overflow: hidden; }
       .img-skel::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%); animation: shimmer 1.5s infinite;
         background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,.6) 50%, transparent 100%); }
