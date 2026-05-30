@@ -247,17 +247,15 @@
       }
 
       /* Intro hero loader: the "S" is the actual Bricolage Grotesque glyph rendered
-         via SVG <text>, but unfilled. The stroke-dashoffset animation traces just
-         the glyph outline — After-Effects "Stroke" reveal — held briefly, then
-         fades out and the cycle restarts. */
+         via SVG <text>, unfilled. The stroke-dashoffset slides past the path on
+         both ends so each cycle goes invisible → outline drawn fully → invisible,
+         making the loop seamless with no fade and no hold — just an endless trace. */
       .hero-loader-mark { width: clamp(110px, 22vw, 180px); height: auto; display: block; }
-      .hero-loader-s { stroke-dasharray: 900; stroke-dashoffset: 900; animation: hero-s-draw 2.8s cubic-bezier(.65, 0, .35, 1) infinite; }
+      .hero-loader-s { stroke-dasharray: 900; stroke-dashoffset: 900; animation: hero-s-draw 2.8s linear infinite; }
       @keyframes hero-s-draw {
-        0%   { stroke-dashoffset: 900; opacity: 0; }
-        6%   { stroke-dashoffset: 900; opacity: 1; }
-        55%  { stroke-dashoffset: 0;   opacity: 1; }
-        82%  { stroke-dashoffset: 0;   opacity: 1; }
-        100% { stroke-dashoffset: 0;   opacity: 0; }
+        0%   { stroke-dashoffset: 900; }
+        50%  { stroke-dashoffset: 0; }
+        100% { stroke-dashoffset: -900; }
       }
 
       /* The skills overlay's inner frame had a fixed 84vh that left a visible gap
