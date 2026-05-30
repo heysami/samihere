@@ -223,14 +223,16 @@
         100% { opacity: 0; transform: translate(calc(-50% + var(--dx, 0px)), calc(-50% - 160px)) scale(var(--scale, 1)) rotate(var(--rot, 0deg)); }
       }
 
-      /* Mobile-only chat headline animation: a cursor descends, taps "stalk me",
-         the text swaps to "tap me to chat" for a beat, then the cursor retreats
-         and the cycle restarts. Pure CSS, three keyframed elements share one
-         4.5-second loop (rest text, tap text, cursor) phased against each other. */
+      /* Mobile-only chat headline animation: when the chat section first comes
+         into view (.hd-anim-go is toggled by IntersectionObserver), a hand cursor
+         descends, taps "stalk me", the text swaps to "tap me to chat", and the
+         cursor retreats — once, no loop. Rests in the default "stalk me" state. */
       @media (max-width: 767px) {
-        .hd-m-rest    { animation: hd-m-rest 4.5s ease-in-out infinite; }
-        .hd-m-tap     { animation: hd-m-tap 4.5s ease-in-out infinite; opacity: 0; }
-        .hd-m-cursor  { animation: hd-m-cursor 4.5s ease-in-out infinite; opacity: 0; transform-origin: 50% 100%; }
+        .hd-m-tap     { opacity: 0; }
+        .hd-m-cursor  { opacity: 0; transform-origin: 50% 100%; }
+        .hd-anim-go .hd-m-rest    { animation: hd-m-rest 4.5s ease-in-out forwards; }
+        .hd-anim-go .hd-m-tap     { animation: hd-m-tap 4.5s ease-in-out forwards; }
+        .hd-anim-go .hd-m-cursor  { animation: hd-m-cursor 4.5s ease-in-out forwards; }
       }
       @keyframes hd-m-rest   { 0%, 35% { opacity: 1; } 45%, 88% { opacity: 0; } 100% { opacity: 1; } }
       @keyframes hd-m-tap    { 0%, 35% { opacity: 0; } 45%, 88% { opacity: 1; } 100% { opacity: 0; } }
@@ -247,7 +249,7 @@
       /* Intro hero loader: an SVG "S" whose stroke is drawn from one end to the
          other, holds, then fades and redraws — the After-Effects "Stroke" reveal.
          The drop-shadow gives the stroke a soft trail under it as it appears. */
-      .hero-loader-mark { width: clamp(110px, 22vw, 180px); height: auto; display: block; filter: drop-shadow(0 0 12px rgba(24, 24, 27, 0.14)); }
+      .hero-loader-mark { width: clamp(110px, 22vw, 180px); height: auto; display: block; }
       .hero-loader-mark path { stroke-dasharray: 100; stroke-dashoffset: 100; animation: hero-s-draw 2.6s cubic-bezier(.65, 0, .35, 1) infinite; }
       @keyframes hero-s-draw {
         0%   { stroke-dashoffset: 100; opacity: 0; }
@@ -565,8 +567,9 @@
                 <!-- Mobile: cursor-tap animation loop swapping "stalk me" ↔ "tap me to chat". -->
                 <h2 class="hd-m-rest md:hidden absolute font-display text-5xl font-black tracking-[-0.015em] text-zinc-900 whitespace-nowrap">stalk me</h2>
                 <h2 class="hd-m-tap md:hidden absolute font-display text-5xl font-black tracking-[-0.015em] text-zinc-900 whitespace-nowrap">tap me to chat</h2>
-                <svg class="hd-m-cursor md:hidden absolute" viewBox="0 0 24 32" width="30" height="38" aria-hidden="true">
-                  <path d="M 3 2 L 3 24 L 8 19 L 11 28 L 14 27 L 11 18 L 18 18 Z" fill="#18181b" stroke="#ffffff" stroke-width="1.6" stroke-linejoin="round" />
+                <svg class="hd-m-cursor md:hidden absolute" viewBox="0 0 24 24" width="34" height="34" aria-hidden="true">
+                  <path d="M11 3a2 2 0 0 0-2 2v8.5l-2-2a2 2 0 1 0-2.83 2.83l5 5A4 4 0 0 0 12 21h2a4 4 0 0 0 4-4V9a1.5 1.5 0 0 0-3 0V8a1.5 1.5 0 0 0-3 0V5a2 2 0 0 0-2-2Z"
+                        fill="#18181b" stroke="#ffffff" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round" />
                 </svg>
               </div>
               <div id="chat-socials" class="flex gap-6 mt-8 text-zinc-400" style="transition:opacity .3s">
@@ -850,6 +853,23 @@
         entries.forEach(en => en.target.classList.toggle('in', en.isIntersecting));
       }, { threshold: 0.3 });
       document.querySelectorAll('.reveal:not(#hero-art):not(#hero-title)').forEach(el => io.observe(el));
+
+      // Mobile-only: trigger the chat headline cursor-tap animation once, the first
+      // time the chat section comes into view. Disconnects after firing so it never loops.
+      (function () {
+        if (!window.matchMedia('(max-width: 767px)').matches) return;
+        const chatSec = document.querySelector('#chat-headline')?.closest('section');
+        if (!chatSec) return;
+        const chatIO = new IntersectionObserver((entries) => {
+          entries.forEach((e) => {
+            if (e.isIntersecting && e.intersectionRatio >= 0.4) {
+              chatSec.classList.add('hd-anim-go');
+              chatIO.disconnect();
+            }
+          });
+        }, { threshold: [0.4] });
+        chatIO.observe(chatSec);
+      })();
 
       /* ════════════════════ Global chromatic-glitch field (cursor) ════════════════════ */
       (function () {
