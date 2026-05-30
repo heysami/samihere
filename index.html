@@ -878,11 +878,19 @@
       });
 
       /* ════════════════════ Entrance reveals ════════════════════ */
-      // Hero animates on load (motion `animate`).
-      window.addEventListener('load', () => {
-        // Stagger the hero layers in — sofa, then person, then computer (per-layer transition-delay).
+      // The hero entrance is triggered by the loader gatekeeper AFTER the loader
+      // has fully faded out, so visitors see the entrance run fresh against a
+      // clean background rather than crossfading behind the disappearing gate.
+      window.playHeroIntro = function () {
         document.querySelectorAll('.hero-composite .lyr').forEach(el => el.classList.add('in'));
         setTimeout(() => document.getElementById('hero-title').classList.add('in'), 380);
+      };
+      // Safety net: if the gatekeeper never calls playHeroIntro for some reason,
+      // play it on window 'load' so the hero is never permanently invisible.
+      window.addEventListener('load', () => {
+        setTimeout(() => {
+          if (window.playHeroIntro) { window.playHeroIntro(); window.playHeroIntro = null; }
+        }, 12000);
       });
       // In-view sections (motion `whileInView`, once:false → re-toggles).
       const io = new IntersectionObserver((entries) => {
@@ -1605,37 +1613,6 @@
         // The window flag covers the race where the scene was ready before this
         // gate script even attached its listener.
         let computerReady = !!window.heroComputerReady;
-        // The hero composite is more than just the computer — there's the sofa
-        // photo, the person illustration, the CRT outline, the shadows, and the
-        // "Sami here," title — each .lyr fades in with its own transition delay,
-        // then #hero-title fades in last (~1.18s after window 'load'). Wait for
-        // EVERY .lyr inside .hero-composite plus #hero-title to fire their final
-        // transitionend before hiding the loader, so visitors never catch the
-        // hero entrance mid-way through behind the fading gate.
-        let entrancePending = 0;
-        let entranceDone = false;
-        function settleEntrance() {
-          entrancePending--;
-          if (entrancePending <= 0) { entranceDone = true; maybeHide(); }
-        }
-        document.querySelectorAll('.hero-composite .lyr').forEach((el) => {
-          entrancePending++;
-          el.addEventListener('transitionend', function once(e) {
-            if (e.target !== el || e.propertyName !== 'opacity') return;
-            el.removeEventListener('transitionend', once);
-            settleEntrance();
-          });
-        });
-        const heroTitle = document.getElementById('hero-title');
-        if (heroTitle) {
-          entrancePending++;
-          heroTitle.addEventListener('transitionend', function once(e) {
-            if (e.target !== heroTitle || e.propertyName !== 'opacity') return;
-            heroTitle.removeEventListener('transitionend', once);
-            settleEntrance();
-          });
-        }
-        if (entrancePending === 0) entranceDone = true;
         let hidden = false;
         // Always show the loader long enough for the marching-S animation to
         // play through at least one full cycle, even if every asset is in
@@ -1650,10 +1627,15 @@
           setTimeout(() => {
             if (scroller) scroller.style.overflow = '';
             loader.style.opacity = '0';
-            setTimeout(() => { loader.remove(); }, 600);
+            setTimeout(() => {
+              loader.remove();
+              // Now that the loader is fully gone, kick off the hero entrance so
+              // visitors see it animate against a clean background.
+              if (window.playHeroIntro) { window.playHeroIntro(); window.playHeroIntro = null; }
+            }, 600);
           }, wait);
         }
-        function maybeHide() { if (pendingImg === 0 && pageReady && computerReady && entranceDone) hide(); }
+        function maybeHide() { if (pendingImg === 0 && pageReady && computerReady) hide(); }
         window.addEventListener('hero-computer-ready', () => { computerReady = true; maybeHide(); });
         imgs.forEach((img) => {
           if (img.complete && img.naturalWidth > 0) { pendingImg--; return; }
@@ -1668,11 +1650,6 @@
         });
         if (pageReady) maybeHide();
         else window.addEventListener('load', () => { pageReady = true; maybeHide(); });
-        // Fallback: even if transitionend never fires for some layer, 2.2s after
-        // window 'load' is enough for the entire hero entrance to be visible.
-        window.addEventListener('load', () => {
-          setTimeout(() => { entranceDone = true; maybeHide(); }, 2200);
-        });
         // Safety net: never let the gate persist beyond 10 seconds.
         setTimeout(hide, 10000);
       })();
