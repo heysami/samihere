@@ -1580,12 +1580,21 @@
         let pendingImg = imgs.length;
         let pageReady = document.readyState === 'complete';
         let hidden = false;
+        // Always show the loader long enough for the marching-S animation to
+        // play through at least one full cycle, even if every asset is in
+        // cache and the gate could otherwise close in <100ms.
+        const MIN_VISIBLE_MS = 1600;
+        const shownAt = Date.now();
         function hide() {
           if (hidden) return;
           hidden = true;
-          if (scroller) scroller.style.overflow = '';
-          loader.style.opacity = '0';
-          setTimeout(() => { loader.remove(); }, 600);
+          const elapsed = Date.now() - shownAt;
+          const wait = Math.max(0, MIN_VISIBLE_MS - elapsed);
+          setTimeout(() => {
+            if (scroller) scroller.style.overflow = '';
+            loader.style.opacity = '0';
+            setTimeout(() => { loader.remove(); }, 600);
+          }, wait);
         }
         function maybeHide() { if (pendingImg === 0 && pageReady) hide(); }
         imgs.forEach((img) => {
