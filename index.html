@@ -1483,16 +1483,6 @@
             if (allLoaded) showGif(restGif());     // retain last-clicked cat (or greeting) — no revert to spinner
             else gifEl.classList.remove('show');   // still loading → fall back to spinner
           });
-          // Random cat-meme meow on click — drop 6 files at sounds/meow1.mp3 … sounds/meow6.mp3.
-          const meows = [1, 2, 3, 4, 5, 6].map(n => { const a = new Audio('sounds/meow' + n + '.mp3'); a.preload = 'none'; return a; });
-          let lastMeow = -1;
-          function playMeow() {
-            if (!meows.length) return;
-            let n; do { n = Math.floor(Math.random() * meows.length); } while (meows.length > 1 && n === lastMeow);
-            lastMeow = n;
-            const a = meows[n];
-            try { a.currentTime = 0; const p = a.play(); if (p && p.catch) p.catch(() => {}); } catch (e) {}
-          }
           // Floating "meow" text bursts from the click point — each click spawns
           // a small flock with random drift, scale, rotation and colour. Each label
           // is one solid colour pulled from a playful palette; consecutive picks
@@ -1523,7 +1513,6 @@
             let n; do { n = Math.floor(Math.random() * GIF_SET.length); } while (GIF_SET.length > 1 && n === last);
             last = n; lastClicked = GIF_SET[n]; showGif(lastClicked);
             gifEl.classList.add('show');
-            playMeow();
             sonicBoom(cCenter);
             cCenter.classList.remove('card-pop'); void cCenter.offsetWidth; cCenter.classList.add('card-pop');
             meowBurst(e.clientX, e.clientY);
